@@ -1,10 +1,13 @@
 pub mod service {
-    use std::process::id;
-    use diesel::prelude::*;
-    use diesel::r2d2::{ConnectionManager, PooledConnection};
-    use diesel::PgConnection;
-    use crate::{model::{UpsertLocation, Location}, schema};
-    use crate::services::locations;
+    use diesel::{
+        prelude::*,
+        PgConnection,
+        r2d2::{ConnectionManager, PooledConnection},
+    };
+    use crate::{
+        locations::model::{Location, UpsertLocation},
+        schema
+    };
 
     type PooledPg = PooledConnection<ConnectionManager<PgConnection>>;
 
@@ -44,15 +47,24 @@ pub mod service {
         pub fn update(&mut self, location_id: i32, upsert_location: UpsertLocation) -> Result<Location, diesel::result::Error> {
             use schema::locations;
 
-            let updated_location = diesel::update(locations::table.find(location_id))
-                .set((
-                    locations::star_system.eq(&upsert_location.star_system),
-                    locations::area.eq(&upsert_location.area),
-                ))
-                .get_result(&mut self.connection)
-                .expect("Update location failed");
+            // Check if the location exists before attempting to update
+            let existing_location = locations::table.find(location_id)
+                .get_result::<Location>(&mut self.connection);
 
-            Ok(updated_location)
+            match existing_location {
+                Ok(_) => {
+                    let updated_location = diesel::update(locations::table.find(location_id))
+                        .set((
+                            locations::star_system.eq(&upsert_location.star_system),
+                            locations::area.eq(&upsert_location.area),
+                        ))
+                        .get_result(&mut self.connection)
+                        .expect("Update location failed");
+
+                    Ok(updated_location)
+                },
+                Err(_) => Err(diesel::result::Error::NotFound)
+            }
         }
 
         pub fn delete(&mut self, location_id: i32) -> Result<(), diesel::result::Error> {

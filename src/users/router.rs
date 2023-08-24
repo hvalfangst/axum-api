@@ -1,12 +1,16 @@
 pub mod router {
-    use std::sync::Arc;
-    use std::time::Instant;
+    use std::{
+        sync::Arc,
+        time::Instant,
+    };
     use serde_json::{json, Value};
-    use axum::{Router, http::StatusCode, Json, response::IntoResponse, extract::State, routing::post, routing::MethodRouter, extract};
+    use axum::{extract, extract::State, http::StatusCode, Json, response::IntoResponse, Router};
     use crate::{
         ConnectionPool,
-        model::{UpsertUser, User},
-        services::users::service::DbExecutor,
+        users::{
+            service::service::DbExecutor,
+            model::UpsertUser
+        },
     };
 
     // - - - - - - - - - - - [ROUTE] - - - - - - - - - - -
@@ -54,10 +58,11 @@ pub mod router {
 
         match users.read(user_id) {
             Ok(user) => {
-                if user.is_empty() {
-                    return Err((StatusCode::NOT_FOUND, Json(json!({"error": "User not found"}))));
+                if let Some(user) = user {
+                    Ok((StatusCode::OK, Json(user)))
+                } else {
+                    Err((StatusCode::NOT_FOUND, Json(json!({"error": "User not found"}))))
                 }
-                Ok((StatusCode::OK, Json(user)))
             },
             Err(err) => {
                 eprintln!("Error reading user: {:?}", err);
@@ -80,12 +85,16 @@ pub mod router {
 
         match users.update(user_id, update_user) {
             Ok(updated_user) => Ok((StatusCode::OK, Json(updated_user))),
+            Err(diesel::result::Error::NotFound) => {
+                Err((StatusCode::NOT_FOUND, Json(json!({"error": "User not found"}))))
+            },
             Err(err) => {
                 eprintln!("Error updating user: {:?}", err);
                 Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to update user"}))))
             }
         }
     }
+
 
     pub async fn delete_user_handler(
         State(shared_state): State<Arc<ConnectionPool>>,

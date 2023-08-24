@@ -1,14 +1,14 @@
 pub mod router {
     use std::sync::Arc;
-    use std::time::Instant;
     use serde_json::{json, Value};
-    use axum::{Router, http::StatusCode, Json, response::IntoResponse, extract::State, routing::post, routing::MethodRouter, extract};
+    use axum::{Router, http::StatusCode, Json, response::IntoResponse, extract::State, extract};
     use crate::{
         ConnectionPool,
-        model::{UpsertLocation, Location},
-        services::locations::service::DbExecutor,
+        locations:: {
+            service::service::DbExecutor,
+            model::UpsertLocation
+        },
     };
-
     // - - - - - - - - - - - [ROUTE] - - - - - - - - - - -
 
     pub fn locations_route(shared_connection_pool: Arc<ConnectionPool>) -> Router {
@@ -81,6 +81,9 @@ pub mod router {
 
         match locations.update(location_id, upsert_location) {
             Ok(updated_location) => Ok((StatusCode::OK, Json(updated_location))),
+            Err(diesel::result::Error::NotFound) => {
+                Err((StatusCode::NOT_FOUND, Json(json!({"error": "Location not found"}))))
+            },
             Err(err) => {
                 eprintln!("Error updating location: {:?}", err);
                 Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to update location"}))))
