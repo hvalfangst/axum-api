@@ -5,7 +5,7 @@ use crate::schema::users;
 #[derive(Serialize, Debug, Clone, Queryable)]
 #[diesel(table_name = users)]
 pub struct User {
-    pub user_id: i32,
+    pub id: i32,
     pub email: String,
     pub password: String,
     pub fullname: String,

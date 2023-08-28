@@ -1,8 +1,8 @@
 use std::env;
 use dotenvy::dotenv;
 
-pub fn load_database_url() -> String {
+pub fn load_environment_variable(variable_name: &str) -> String {
     dotenv().ok();
-    env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set")
+    env::var(variable_name)
+        .expect(&format!("{} must be set", variable_name))
 }

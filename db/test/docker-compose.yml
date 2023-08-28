@@ -1,0 +1,11 @@
+version: '3.7'
+services:
+  postgres:
+    image: postgres:latest
+    restart: always
+    environment:
+      - POSTGRES_USER=Glossy
+      - POSTGRES_PASSWORD=yellau
+      - POSTGRES_DB=test_db
+    ports:
+      - '4444:5432'

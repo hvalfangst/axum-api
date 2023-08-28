@@ -5,7 +5,7 @@ use crate::schema::locations;
 #[derive(Serialize, Debug, Clone, Queryable)]
 #[diesel(table_name = locations)]
 pub struct Location {
-    pub location_id: i32,
+    pub id: i32,
     pub star_system: String,
     pub area: String,
 }

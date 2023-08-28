@@ -3,20 +3,23 @@
 # Exits immediately if a command exits with a non-zero status
 set -e
 
-# Run 'docker-compose up' for source database deployment
-docker-compose -f db/docker-compose.yml up -d
+# Run 'docker-compose up' for creating databases used in the application
+docker-compose -f db/dev/docker-compose.yml up -d
+docker-compose -f db/test/docker-compose.yml up -d
 
-# Install CLI associated with Diesel crate
 cargo install diesel_cli --no-default-features --features "postgres"
 
-# Connect to database
-diesel setup
+# Run migrations for our development database
+diesel migration run --database-url="postgres://Tremakken:yeah???@localhost:3333/dev_db"
 
-# Run the "up" portion of migration files located under folder "migrations"
-diesel migration run
+# Run migrations for our test database
+diesel migration run --database-url="postgres://Glossy:yellau@localhost:4444/test_db"
 
 # Compiles the application
 cargo build
+
+# Runs the tests single-threaded in order to avoid connection pool race conditions
+cargo test -- --test-threads=1
 
 # Serves the exposed endpoints with Axum via underlying Hyper layer
 cargo run
