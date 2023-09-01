@@ -13,9 +13,9 @@ pub mod router {
         },
     };
 
-    // - - - - - - - - - - - [ROUTE] - - - - - - - - - - -
+    // - - - - - - - - - - - [ROUTES] - - - - - - - - - - -
 
-    pub fn users_route(shared_connection_pool: Arc<ConnectionPool>) -> Router {
+    pub fn users_routes(shared_connection_pool: Arc<ConnectionPool>) -> Router {
         Router::new()
             .route("/users", axum::routing::post(create_user_handler))
             .route("/users/:user_id", axum::routing::get(read_user_handler))

@@ -10,7 +10,7 @@ pub struct Location {
     pub area: String,
 }
 
-#[derive(Debug, Clone, Insertable, Deserialize)]
+#[derive(Debug, Clone, Insertable, Deserialize, Serialize)]
 #[diesel(table_name = locations)]
 pub struct UpsertLocation {
     pub star_system: String,
