@@ -23,8 +23,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Install Diesel CLI
-        run: cargo install diesel_cli --no-default-features --features "postgres"
+        run: |
+          if ! command -v diesel &> /dev/null; then
+            cargo install diesel_cli --no-default-features --features "postgres"
+          fi
 
       - name: Run Database Migrations
         run: |
