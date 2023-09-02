@@ -152,7 +152,7 @@ pub mod router {
         }
 
         #[tokio::test]
-        async fn put_locations_returns_202_on_valid_data() {
+        async fn put_locations_returns_200_on_valid_data() {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 2);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
@@ -285,6 +285,52 @@ pub mod router {
         }
 
         #[tokio::test]
+        async fn delete_locations_returns_204() {
+            let database_url = load_environment_variable("TEST_DB");
+            let connection_pool = create_shared_connection_pool(database_url, 2);
+            let connection = connection_pool.pool.get().expect("Failed to get connection");
+            let mut db_executor = DbExecutor::new(connection);
+            let service = locations_routes(connection_pool);
+
+            // Data
+            let new_location = UpsertLocation {
+                star_system: "Fountain".to_string(),
+                area: "The Serpent's Lair".to_string(),
+            };
+
+            // Create a new location with the above data
+            let created_location = db_executor.create(new_location.clone()).expect("Create location failed");
+
+            // Create a request with the ID associated with our newly inserted row
+            let request = Request::builder()
+                .uri(format!("/locations/{}", created_location.id))
+                .method("DELETE")
+                .body(Body::empty())
+                .unwrap();
+
+            // Send the request through the service
+            let response = service
+                .oneshot(request)
+                .await
+                .unwrap();
+
+            // Assert that the response status is 204
+            assert_eq!(response.status(), StatusCode::NO_CONTENT);
+
+            // Attempt to retrieve the deleted location
+            let deleted_location_result = db_executor.read(created_location.id);
+
+            // Assert that the Result is Ok (no error)
+            assert!(deleted_location_result.is_ok());
+
+            // Extract the Option<Location> from the Ok variant
+            let deleted_location = deleted_location_result.unwrap();
+
+            // Assert that the deleted location is None (i.e., it doesn't exist)
+            assert!(deleted_location.is_none());
+        }
+
+        #[tokio::test]
         async fn unsupported_route_returns_404() {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
@@ -315,6 +361,5 @@ pub mod router {
         }
 
     }
-
 
 }
