@@ -1,0 +1,37 @@
+name: Rust CI
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: Glossy
+          POSTGRES_PASSWORD: yellau
+          POSTGRES_DB: test_db
+        ports:
+          - 4444:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Diesel CLI
+        run: cargo install diesel_cli --no-default-features --features "postgres"
+
+      - name: Run Database Migrations
+        run: |
+          diesel migration run --database-url="postgres://Glossy:yellau@localhost:4444/test_db"
+
+      - name: Build Rust application
+        run: cargo build
+
+      - name: Run Rust tests
+        run: cargo test -- --test-threads=1
