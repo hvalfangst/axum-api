@@ -103,18 +103,17 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-
-           let mut db_executor = DbExecutor::new(connection);
+            let mut db_executor = DbExecutor::new(connection);
 
             let new_location = UpsertLocation {
                 star_system: "Test Star System".to_string(),
                 area: "Test Area".to_string(),
             };
 
-            let created_location = db_executor.create(new_location).expect("Create location failed");
+            let created_location = db_executor.create(new_location.clone()).expect("Create location failed");
 
-            assert_eq!(created_location.star_system, "Test Star System");
-            assert_eq!(created_location.area, "Test Area");
+            assert_eq!(created_location.star_system, new_location.star_system);
+            assert_eq!(created_location.area, new_location.area);
         }
 
 
@@ -123,7 +122,6 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-
             let mut db_executor = DbExecutor::new(connection);
 
             let new_location = UpsertLocation {
@@ -134,8 +132,8 @@ pub mod service {
 
             let retrieved_location = db_executor.read(created_location.id).expect("Read location failed").unwrap();
 
-            assert_eq!(retrieved_location.star_system, "Test Star System");
-            assert_eq!(retrieved_location.area, "Test Area");
+            assert_eq!(retrieved_location.star_system, new_location.star_system);
+            assert_eq!(retrieved_location.area, new_location.area);
         }
 
         #[test]
@@ -143,10 +141,9 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-
             let mut db_executor = DbExecutor::new(connection);
 
-            let retrieved_location = db_executor.read(-1);  // Use a non-existent ID
+            let retrieved_location = db_executor.read(-666);  // Use a non-existent ID
             assert!(retrieved_location.is_ok());  // Expecting Ok(None)
             assert!(retrieved_location.unwrap().is_none());
         }
@@ -157,7 +154,6 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-
             let mut db_executor = DbExecutor::new(connection);
 
             let new_location = UpsertLocation {
@@ -166,14 +162,14 @@ pub mod service {
             };
             let created_location = db_executor.create(new_location.clone()).expect("Create location failed");
 
-            let updated_location = UpsertLocation {
+            let updated_request = UpsertLocation {
                 star_system: "Updated Star System".to_string(),
                 area: "Updated Area".to_string(),
             };
-            let updated_location = db_executor.update(created_location.id, updated_location.clone()).expect("Update location failed");
+            let updated_location = db_executor.update(created_location.id, updated_request.clone()).expect("Update location failed");
 
-            assert_eq!(updated_location.star_system, "Updated Star System");
-            assert_eq!(updated_location.area, "Updated Area");
+            assert_eq!(updated_location.star_system, updated_request.star_system);
+            assert_eq!(updated_location.area, updated_request.area);
         }
 
         #[test]
@@ -181,16 +177,15 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-
             let mut db_executor = DbExecutor::new(connection);
 
-            let updated_location = UpsertLocation {
+            let request = UpsertLocation {
                 star_system: "This test will fail".to_string(),
                 area: "so write random skit here".to_string(),
             };
 
-            let result = db_executor.update(-1, updated_location.clone());  // Use a non-existent ID
-            assert!(result.is_err());  // Expecting an error
+            let result = db_executor.update(-1, request.clone());  // Use a non-existent ID
+            assert!(result.is_err());  // Expecting an error as the ID is not present
         }
 
 
@@ -199,19 +194,17 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-
             let mut db_executor = DbExecutor::new(connection);
 
             let new_location = UpsertLocation {
                 star_system: "Test Star System".to_string(),
                 area: "Test Area".to_string(),
             };
+
             let created_location = db_executor.create(new_location.clone()).expect("Create location failed");
-
             db_executor.delete(created_location.id.clone()).expect("Delete location failed");
-            let deleted_location = db_executor.read(created_location.id).expect("Read deleted location failed");
-
-            assert!(deleted_location.is_none()); // Expecting lack of value
+            let deleted_location = db_executor.read(created_location.id).expect("Read location failed");
+            assert!(deleted_location.is_none()); // Expecting lack of value as location has been deleted
         }
 
         #[test]
@@ -219,11 +212,10 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-
             let mut db_executor = DbExecutor::new(connection);
 
-            let result = db_executor.delete(-1);  // Use a non-existent ID
-            assert!(result.is_err());  // Expecting an error
+            let result = db_executor.delete(-666);  // Use a non-existent ID
+            assert!(result.is_err());  // Expecting an error as the ID is not present
         }
     }
 }

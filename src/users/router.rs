@@ -95,7 +95,6 @@ pub mod router {
         }
     }
 
-
     pub async fn delete_user_handler(
         State(shared_state): State<Arc<ConnectionPool>>,
         path: extract::Path<(i32,)>,

@@ -264,12 +264,9 @@ pub mod router {
             let connection_pool = create_shared_connection_pool(database_url, 2);
             let service = locations_routes(connection_pool);
 
-            // Assign an id that is highly unlikely to be present
-            let non_existing_id = 666666;
-
             // Create a request with the aforementioned id
             let request = Request::builder()
-                .uri(format!("/locations/{}", non_existing_id))
+                .uri(format!("/locations/{}", -666)) // Use a non-existent ID
                 .method("GET")
                 .body(Body::empty())
                 .unwrap();
@@ -359,7 +356,5 @@ pub mod router {
             // Assert that the response status is 404
             assert_eq!(response.status(), StatusCode::NOT_FOUND);
         }
-
     }
-
 }
