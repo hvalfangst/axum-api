@@ -132,9 +132,9 @@ pub mod service {
             let mut db_executor = DbExecutor::new(connection);
 
             let new_user = UpsertUser {
-                email: "obelisksx@ifi.uio.no".to_string(),
-                password: "EatSleepRepeat".to_string(),
-                fullname: "Obelix fra IFI".to_string(),
+                email: "kokemakken@tremakk.no".to_string(),
+                password: "huuuuuman".to_string(),
+                fullname: "Woodwormius".to_string(),
                 role_id: 1
             };
 
@@ -168,18 +168,18 @@ pub mod service {
             let mut db_executor = DbExecutor::new(connection);
 
             let original_request = UpsertUser {
-                email: "obelisksx@ifi.uio.no".to_string(),
-                password: "EatSleepRepeat".to_string(),
-                fullname: "Obelix fra IFI".to_string(),
+                email: "pondi@wwf.com".to_string(),
+                password: "SnorkSnorkSnork".to_string(),
+                fullname: "Panda Pondi".to_string(),
                 role_id: 1
             };
 
             let original_user = db_executor.create(original_request.clone()).expect("Create user failed");
 
             let updated_request = UpsertUser {
-                email: "obelisksx@ifi.uio.no".to_string(),
-                password: "IHateThisDiet".to_string(),
-                fullname: "Obelix fra IFI".to_string(),
+                email: "uhi@wwf.com".to_string(),
+                password: "SlafsSlafsSlaf".to_string(),
+                fullname: "Panda Pondi".to_string(),
                 role_id: 1
             };
 
@@ -199,9 +199,9 @@ pub mod service {
             let mut db_executor = DbExecutor::new(connection);
 
             let request = UpsertUser {
-                email: "".to_string(),
-                password: "".to_string(),
-                fullname: "".to_string(),
+                email: "lukewarm@manlet.com".to_string(),
+                password: "realfrogeyes".to_string(),
+                fullname: "Lukas Parrot".to_string(),
                 role_id: 1
             };
 
@@ -218,9 +218,9 @@ pub mod service {
             let mut db_executor = DbExecutor::new(connection);
 
             let request = UpsertUser {
-                email: "".to_string(),
-                password: "".to_string(),
-                fullname: "".to_string(),
+                email: "world.according.to.jesse@mongols.com".to_string(),
+                password: "bunchofslackjawedfgets".to_string(),
+                fullname: "Jesse Ventura".to_string(),
                 role_id: 1
             };
 

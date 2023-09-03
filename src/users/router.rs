@@ -232,9 +232,9 @@ pub mod router {
             let service = users_routes(connection_pool);
 
             let request_body = UpsertUser {
-                email: "ernst@snowmail.com".to_string(),
-                password: "feltedsnowmen".to_string(),
-                fullname: "Ernst van Schnee".to_string(),
+                email: "glossy@ringdue.no".to_string(),
+                password: "LillePostBudMin".to_string(),
+                fullname: "Glossy Garnished".to_string(),
                 role_id: 1
             };
 
@@ -306,9 +306,9 @@ pub mod router {
             let service = users_routes(connection_pool);
 
             let request_body = UpsertUser {
-                email: "ernst@snowmail.com".to_string(),
-                password: "feltedsnowmen".to_string(),
-                fullname: "Ernst van Schnee".to_string(),
+                email: "josek@ifi.uio.no".to_string(),
+                password: "TurboPascalLife".to_string(),
+                fullname: "Jose Kernelio".to_string(),
                 role_id: 1
             };
 
