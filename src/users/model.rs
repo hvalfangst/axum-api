@@ -12,7 +12,7 @@ pub struct User {
     pub role_id: i32,
 }
 
-#[derive(Debug, Clone, Insertable, Deserialize)]
+#[derive(Debug, Clone, Insertable, Deserialize, Serialize)]
 #[diesel(table_name = users)]
 pub struct UpsertUser {
     pub email: String,

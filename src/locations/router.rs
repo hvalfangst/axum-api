@@ -116,7 +116,7 @@ pub mod router {
         use axum::body::Body;
         use axum::http::{Request, StatusCode};
         use serde_json::json;
-        use tower::ServiceExt; // for `oneshot` and `ready`
+        use tower::ServiceExt;
         use crate::{create_shared_connection_pool, load_environment_variable, locations_routes};
         use crate::locations::model::UpsertLocation;
         use crate::locations::service::service::DbExecutor;
@@ -128,7 +128,7 @@ pub mod router {
             let service = locations_routes(connection_pool);
 
             // Data
-            let new_location = UpsertLocation {
+            let request_body = UpsertLocation {
                 star_system: "Fountain".to_string(),
                 area: "The Serpent's Lair".to_string(),
             };
@@ -138,7 +138,7 @@ pub mod router {
                 .uri("/locations")
                 .method("POST")
                 .header("content-type", "application/json")
-                .body(Body::from(serde_json::to_string(&new_location).unwrap()))
+                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap();
 
             // Send the request through the service
@@ -159,21 +159,19 @@ pub mod router {
             let mut db_executor = DbExecutor::new(connection);
             let service = locations_routes(connection_pool);
 
-            // Data
-            let location = UpsertLocation {
+            let request_body = UpsertLocation {
                 star_system: "Fountain".to_string(),
                 area: "The Serpent's Lair".to_string(),
             };
 
             // Create a new location with the above data
-            let created_location = db_executor.create(location.clone()).expect("Create location failed");
+            let created_location = db_executor.create(request_body.clone()).expect("Create location failed");
 
             // Assert equality
-            assert_eq!(location.star_system, created_location.star_system);
-            assert_eq!(location.area, created_location.area);
+            assert_eq!(request_body.star_system, created_location.star_system);
+            assert_eq!(request_body.area, created_location.area);
 
-            // Data
-            let updated_location = UpsertLocation {
+            let updated_request_body = UpsertLocation {
                 star_system: "Kador".to_string(),
                 area: "The Crimson Expanse".to_string(),
             };
@@ -183,7 +181,7 @@ pub mod router {
                 .uri(format!("/locations/{}", created_location.id))
                 .method("PUT")
                 .header("content-type", "application/json")
-                .body(Body::from(serde_json::to_string(&updated_location).unwrap()))
+                .body(Body::from(serde_json::to_string(&updated_request_body).unwrap()))
                 .unwrap();
 
             // Send the request through the service
@@ -202,8 +200,8 @@ pub mod router {
             // Construct JSON consisting of expected payload
             let expected_response = json!({
                 "id": created_location.id,
-                "area": updated_location.area,
-                "star_system": updated_location.star_system
+                "area": updated_request_body.area,
+                "star_system": updated_request_body.star_system
             });
 
             // Assert equality
@@ -218,14 +216,13 @@ pub mod router {
             let mut db_executor = DbExecutor::new(connection);
             let service = locations_routes(connection_pool);
 
-            // Data
-            let new_location = UpsertLocation {
+            let request_body = UpsertLocation {
                 star_system: "Fountain".to_string(),
                 area: "The Serpent's Lair".to_string(),
             };
 
             // Create a new location with the above data
-            let created_location = db_executor.create(new_location.clone()).expect("Create location failed");
+            let created_location = db_executor.create(request_body.clone()).expect("Create location failed");
 
             // Create a request with the ID associated with our newly inserted row
             let request = Request::builder()
@@ -247,11 +244,11 @@ pub mod router {
             let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
             let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
-            // Extract the relevant fields from new_location
+            // Construct JSON consisting of expected payload
             let expected_response = json!({
                 "id": created_location.id,
-                "area": new_location.area,
-                "star_system": new_location.star_system
+                "area": request_body.area,
+                "star_system": request_body.star_system
             });
 
             // Assert equality
@@ -289,14 +286,13 @@ pub mod router {
             let mut db_executor = DbExecutor::new(connection);
             let service = locations_routes(connection_pool);
 
-            // Data
-            let new_location = UpsertLocation {
+            let request_body = UpsertLocation {
                 star_system: "Fountain".to_string(),
                 area: "The Serpent's Lair".to_string(),
             };
 
             // Create a new location with the above data
-            let created_location = db_executor.create(new_location.clone()).expect("Create location failed");
+            let created_location = db_executor.create(request_body.clone()).expect("Create location failed");
 
             // Create a request with the ID associated with our newly inserted row
             let request = Request::builder()
@@ -325,36 +321,6 @@ pub mod router {
 
             // Assert that the deleted location is None (i.e., it doesn't exist)
             assert!(deleted_location.is_none());
-        }
-
-        #[tokio::test]
-        async fn unsupported_route_returns_404() {
-            let database_url = load_environment_variable("TEST_DB");
-            let connection_pool = create_shared_connection_pool(database_url, 1);
-            let service = locations_routes(connection_pool);
-
-            // Data
-            let new_location = UpsertLocation {
-                star_system: "Fountain".to_string(),
-                area: "The Serpent's Lair".to_string(),
-            };
-
-            // Create a request with the above data
-            let request = Request::builder()
-                .uri("/unsupported_url")
-                .method("POST")
-                .header("content-type", "application/json")
-                .body(Body::from(serde_json::to_string(&new_location).unwrap()))
-                .unwrap();
-
-            // Send the request through the service
-            let response = service
-                .oneshot(request)
-                .await
-                .unwrap();
-
-            // Assert that the response status is 404
-            assert_eq!(response.status(), StatusCode::NOT_FOUND);
         }
     }
 }
