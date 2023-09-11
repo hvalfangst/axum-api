@@ -15,7 +15,8 @@ serde_json = "1.0"
 axum = "0.6.2"
 tower-http = { version = "0.4.0", features = ["trace"] }
 tower = { version = "0.4", features = ["util"] }
-hyper = "0.14"  # Use the appropriate version
+hyper = "0.14"
+regex = "1.5"
 
 [[bin]]
 name = "axum_api_with_auth"

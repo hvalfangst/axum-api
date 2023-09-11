@@ -32,6 +32,10 @@ pub mod router {
         Json(body): Json<UpsertUser>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
 
+        if !body.is_valid_email() {
+            return Err((StatusCode::UNPROCESSABLE_ENTITY, Json(json!({"error": "Invalid input for field 'email'"}))))
+        }
+
         let connection = shared_state.pool.get()
             .expect("Failed to acquire connection from pool");
 
@@ -132,9 +136,9 @@ pub mod router {
             let service = users_routes(connection_pool);
 
             let request_body = UpsertUser {
-                email: "".to_string(),
-                password: "".to_string(),
-                fullname: "".to_string(),
+                email: "valid@email.com".to_string(),
+                password: "Big100".to_string(),
+                fullname: "Kenneth Molasses".to_string(),
                 role_id: 1
             };
 
@@ -154,6 +158,37 @@ pub mod router {
 
             // Assert that the response status is 201
             assert_eq!(response.status(), StatusCode::CREATED);
+        }
+
+        #[tokio::test]
+        async fn post_users_returns_422_on_invalid_email() {
+            let database_url = load_environment_variable("TEST_DB");
+            let connection_pool = create_shared_connection_pool(database_url, 1);
+            let service = users_routes(connection_pool);
+
+            let request_body = UpsertUser {
+                email: "eg-klare-meg".to_string(),
+                password: "Big100".to_string(),
+                fullname: "Kenneth Molasses".to_string(),
+                role_id: 1
+            };
+
+            // Create a request with the above data as payload
+            let request = Request::builder()
+                .uri("/users")
+                .method("POST")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+                .unwrap();
+
+            // Send the request through the service
+            let response = service
+                .oneshot(request)
+                .await
+                .unwrap();
+
+            // Assert that the response status is 422
+            assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
         }
 
         #[tokio::test]

@@ -15,7 +15,7 @@ pub struct ConnectionPool {
 #[tokio::main]
 async fn main() {
     let database_url = load_environment_variable("DEV_DB");
-    let shared_connection_pool = create_shared_connection_pool(database_url, 100);
+    let shared_connection_pool = create_shared_connection_pool(database_url, 1);
 
     axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
         .serve(users_routes(shared_connection_pool.clone())

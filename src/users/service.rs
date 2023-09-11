@@ -4,10 +4,12 @@ pub mod service {
         PgConnection,
         r2d2::{ConnectionManager, PooledConnection},
     };
+    use diesel::result::Error;
     use crate::{
         users::model::{User, UpsertUser},
         schema
     };
+    use crate::util::CustomError;
 
     type PooledPg = PooledConnection<ConnectionManager<PgConnection>>;
 
@@ -20,19 +22,20 @@ pub mod service {
             DbExecutor { connection }
         }
 
-        pub fn create(&mut self, create_user: UpsertUser) -> Result<User, diesel::result::Error> {
+        pub fn create(&mut self, create_user: UpsertUser) -> Result<User, CustomError> {
             use schema::users;
 
-            let new_user = diesel::insert_into(users::table)
+            diesel::insert_into(users::table)
                 .values((
                     users::email.eq(&create_user.email),
                     users::password.eq(&create_user.password),
                     users::fullname.eq(&create_user.fullname),
                     users::role_id.eq(&create_user.role_id),
                 ))
-                .get_result(&mut self.connection).expect("Create user failed");
-
-            Ok(new_user)
+                .get_result::<User>(&mut self.connection)
+                .map_err(|err| {
+                    CustomError::from_diesel_err(err, "while creating user")
+                })
         }
 
         pub fn read(&mut self, user_id: i32) -> Result<Option<User>, diesel::result::Error> {
@@ -66,7 +69,7 @@ pub mod service {
 
                     Ok(updated_user)
                 },
-                Err(_) => Err(diesel::result::Error::NotFound)
+                Err(_) => Err(Error::NotFound)
             }
         }
 
@@ -85,7 +88,7 @@ pub mod service {
                     Ok(())
                 },
                 Err(_) => {
-                    Err(diesel::result::Error::NotFound)
+                    Err(Error::NotFound)
                 }
             }
         }
@@ -101,6 +104,7 @@ pub mod service {
                 service::service::DbExecutor
             }
         };
+        use crate::util::ErrorType;
 
         #[test]
         fn create_succeeds_on_valid_input() {
@@ -122,6 +126,50 @@ pub mod service {
             assert_eq!(created_user.password, new_user.password);
             assert_eq!(created_user.fullname, new_user.fullname);
             assert_eq!(created_user.role_id, new_user.role_id);
+        }
+
+        #[test]
+        fn create_fails_on_duplicate_mail() {
+            let database_url = load_environment_variable("TEST_DB");
+            let connection_pool = create_shared_connection_pool(database_url, 1);
+            let connection = connection_pool.pool.get().expect("Failed to get connection");
+            let mut db_executor = DbExecutor::new(connection);
+
+            let dupe_user = UpsertUser {
+                email: "duperdave@blizzard.com".to_string(),
+                password: "GullDagger69".to_string(),
+                fullname: "Mule Duperino".to_string(),
+                role_id: 1
+            };
+
+            // First create should succeed
+            let first_create_result = db_executor.create(dupe_user.clone());
+            assert!(first_create_result.is_ok()); // Check if it's Ok
+
+            let first_create = match first_create_result {
+                Ok(user) => user, // Extract the User from the Result
+                Err(err) => panic!("First create failed with error: {:?}", err),
+            };
+
+            assert_eq!(first_create.email, dupe_user.email);
+            assert_eq!(first_create.password, dupe_user.password);
+            assert_eq!(first_create.fullname, dupe_user.fullname);
+            assert_eq!(first_create.role_id, dupe_user.role_id);
+
+            // Second create should fail due to violation of unique constraint on 'email'
+            let second_create = db_executor.create(dupe_user.clone());
+            assert!(second_create.is_err());
+
+            // Check the specific error type (BadRequest) and message
+            if let Err(err) = second_create {
+                assert_eq!(err.err_type, ErrorType::UniqueViolation);
+                assert_eq!(
+                    err.message,
+                    "while creating user: duplicate key value violates unique constraint \"users_email_key\""
+                );
+            } else {
+                panic!("Expected an error, but got Ok");
+            }
         }
 
         #[test]

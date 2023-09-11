@@ -18,3 +18,4 @@ delete_entries() {
 delete_entries "ships"
 delete_entries "empires"
 delete_entries "locations"
+delete_entries "users"
