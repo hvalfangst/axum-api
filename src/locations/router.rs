@@ -1,17 +1,29 @@
 pub mod router {
+    use std::borrow::Borrow;
+    use std::ops::Deref;
     use std::sync::Arc;
+    use std::thread;
     use serde_json::{json, Value};
     use axum::{Router, http::StatusCode, Json, response::IntoResponse, extract::State, extract};
+    use axum::http::header::{HeaderName, HeaderValue, AUTHORIZATION};
+    use axum::middleware::Next;
+    use diesel::result::Error;
+    use http::{HeaderMap, Request, Response};
+    use jsonwebtoken::{Algorithm, decode, DecodingKey, TokenData, Validation};
     use crate::{
-        ConnectionPool,
+        db::ConnectionPool,
+        users::service::service::DbExecutor as UsersDB,
         locations:: {
-            service::service::DbExecutor,
+            service::service::DbExecutor as locationsDB,
             model::UpsertLocation
         },
     };
+    use crate::users::model::{Claims, User};
+    use jsonwebtoken::errors::ErrorKind as JwtErrorKind;
+
     // - - - - - - - - - - - [ROUTES] - - - - - - - - - - -
 
-    pub fn locations_routes(shared_connection_pool: Arc<ConnectionPool>) -> Router {
+    pub fn locations_routes(shared_connection_pool: ConnectionPool) -> Router {
         Router::new()
             .route("/locations", axum::routing::post(create_location_handler))
             .route("/locations/:location_id", axum::routing::get(read_location_handler))
@@ -21,28 +33,140 @@ pub mod router {
     }
 
 
+    fn role_to_string(role: i32) -> String {
+        match role {
+            1 => "READER".to_string(),
+            2 => "WRITER".to_string(),
+            3 => "EDITOR".to_string(),
+            4 => "ADMIN".to_string(),
+            _ => "INVALID_ROLE".to_string(),
+        }
+    }
+
     // - - - - - - - - - - - [HANDLERS] - - - - - - - - - - -
 
     pub async fn create_location_handler(
-        State(shared_state): State<Arc<ConnectionPool>>,
+        headers: HeaderMap,
+        State(shared_state): State<ConnectionPool>,
         Json(upsert_location): Json<UpsertLocation>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
-        let connection = shared_state.pool.get()
-            .expect("Failed to acquire connection from pool");
 
-        let mut locations = DbExecutor::new(connection);
+        // Decode claims from bearer token header
+        let claims = match decode_claims(&headers) {
+            Ok(claims) => claims,
+            Err((status_code, json_value)) => return Err((status_code, json_value)),
+        };
 
-        match locations.create(upsert_location) {
-            Ok(new_location) => Ok((StatusCode::CREATED, Json(new_location))),
+        // Ensure that the user derived from claims exists and has the role 'CREATOR'
+        let authorization = enforce_role_policy(&shared_state, &claims, "CREATOR".to_string()).await;
+
+        match authorization {
+            Ok(authorized_user) => {
+                let connection = shared_state.pool.get().expect("Failed to acquire connection from pool");
+                let mut locations = locationsDB::new(connection);
+
+                match  locations.create(upsert_location) {
+                    Ok(new_location) => Ok((StatusCode::CREATED, Json(new_location))),
+                    Err(err) => {
+                        eprintln!("Error creating location: {:?}", err);
+                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to create location"}))))
+                    }
+                }
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    fn decode_claims(headers: &HeaderMap) -> Result<Option<TokenData<Claims>>, (StatusCode, Json<Value>)> {
+
+        // Retrieve Authorization header from the map of request headers
+        let token_header = headers.get("Authorization");
+
+        // Map token if it exists - return error if not
+        let token = match token_header {
+            None => {
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({"error": "Missing header"})),
+                ));
+            }
+            Some(header) => header.to_str().unwrap(),
+        };
+
+        eprintln!("Token: {:?}", token);
+
+        // Return error if the the token does not start with "Bearer"
+        if !token.starts_with("Bearer ") {
+            eprintln!("Token is missing 'Bearer ' prefix");
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": "Token is missing 'Bearer ' prefix"})),
+            ));
+        }
+
+        // Attempt to decode token and match the results
+        match decode::<Claims>(
+            &token[7..],
+            &DecodingKey::from_secret("secret".as_ref()),
+            &Validation::new(Algorithm::HS256),
+        ) {
             Err(err) => {
-                eprintln!("Error creating location: {:?}", err);
-                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to create location"}))))
+                match err.kind() {
+                    // Handle the specific ExpiredSignature error
+                    JwtErrorKind::ExpiredSignature => {
+                        eprintln!("JWT expired: {:?}", err);
+                        Err((
+                            StatusCode::UNAUTHORIZED,
+                            Json(json!({"error": "Token has expired"})),
+                        ))
+                    }
+                    _ => {
+                        // Handle other decoding errors
+                        eprintln!("Error decoding JWT: {:?}", err);
+                        Err((
+                            StatusCode::UNAUTHORIZED,
+                            Json(json!({"error": "Invalid JWT"})),
+                        ))
+                    }
+                }
+            }
+            Ok(decoded_claims) => Ok(Some(decoded_claims)),
+        }
+    }
+
+    async fn enforce_role_policy(
+        shared_state: &ConnectionPool,
+        claims: &Option<TokenData<Claims>>,
+        required_role: String,
+    ) -> Result<Option<User>, (StatusCode, Json<Value>)> {
+        let connection = shared_state.pool.get().expect("Failed to acquire connection from pool");
+        let mut users = UsersDB::new(connection);
+
+        match users.readByEmail(claims.clone().unwrap().claims.sub) {
+            Ok(user) => {
+                let user_role = role_to_string(user.clone().unwrap().role_id);
+                let claims_role = claims.clone().unwrap().claims.role;
+
+                if user_role != required_role {
+                    eprintln!("User role: {} does not match required role: {}", user_role, required_role);
+                    Err((StatusCode::UNAUTHORIZED,
+                         Json(json!({"error": format!("Current role of {} does not match the required role of {}", user_role, required_role)}))))
+                } else if user_role != claims_role {
+                    eprintln!("Role in claims, {} does not match role in DB: {}", claims_role, user_role);
+                    Err((StatusCode::UNAUTHORIZED, Json(json!({"error": "Roles in claims differ from DB"}))))
+                } else {
+                    Ok(user)
+                }
+            }
+            Err(err) => {
+                eprintln!("User in claims not found in DB {:?}", err);
+                Err((StatusCode::UNAUTHORIZED, Json(json!({"error": "User in claims not found in DB"}))))
             }
         }
     }
 
     pub async fn read_location_handler(
-        State(shared_state): State<Arc<ConnectionPool>>,
+        State(shared_state): State<ConnectionPool>,
         path: extract::Path<(i32,)>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         let (location_id,) = path.0;
@@ -50,7 +174,7 @@ pub mod router {
         let connection = shared_state.pool.get()
             .expect("Failed to acquire connection from pool");
 
-        let mut locations = DbExecutor::new(connection);
+        let mut locations = locationsDB::new(connection);
 
         match locations.read(location_id) {
             Ok(location) => {
@@ -68,7 +192,7 @@ pub mod router {
     }
 
     pub async fn update_location_handler(
-        State(shared_state): State<Arc<ConnectionPool>>,
+        State(shared_state): State<ConnectionPool>,
         path: extract::Path<(i32,)>,
         Json(upsert_location): Json<UpsertLocation>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
@@ -77,7 +201,7 @@ pub mod router {
         let connection = shared_state.pool.get()
             .expect("Failed to acquire connection from pool");
 
-        let mut locations = DbExecutor::new(connection);
+        let mut locations = locationsDB::new(connection);
 
         match locations.update(location_id, upsert_location) {
             Ok(updated_location) => Ok((StatusCode::OK, Json(updated_location))),
@@ -92,7 +216,7 @@ pub mod router {
     }
 
     pub async fn delete_location_handler(
-        State(shared_state): State<Arc<ConnectionPool>>,
+        State(shared_state): State<ConnectionPool>,
         path: extract::Path<(i32,)>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         let (location_id,) = path.0;
@@ -100,7 +224,7 @@ pub mod router {
         let connection = shared_state.pool.get()
             .expect("Failed to acquire connection from pool");
 
-        let mut locations = DbExecutor::new(connection);
+        let mut locations = locationsDB::new(connection);
 
         match locations.delete(location_id) {
             Ok(_) => Ok((StatusCode::NO_CONTENT, ())),

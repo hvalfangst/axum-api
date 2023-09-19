@@ -1,5 +1,7 @@
 use std::{env, fmt};
 use axum::http;
+use axum::{extract::Extension, handler::Handler};
+use std::str::from_utf8;
 use dotenvy::dotenv;
 
 pub fn load_environment_variable(variable_name: &str) -> String {
@@ -20,6 +22,8 @@ pub struct CustomError {
     pub err_type: ErrorType,
     pub message: String,
 }
+
+
 
 impl CustomError {
     pub fn new(message: &str, err_type: ErrorType) -> CustomError {

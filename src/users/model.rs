@@ -13,6 +13,13 @@ pub struct User {
     pub role_id: i32,
 }
 
+#[derive(Serialize, Debug, Clone, Queryable)]
+#[diesel(table_name = roles)]
+pub struct Role {
+    pub id: i32,
+    pub role_name: String
+}
+
 #[derive(Debug, Clone, Insertable, Deserialize, Serialize)]
 #[diesel(table_name = users)]
 pub struct UpsertUser {
@@ -20,6 +27,19 @@ pub struct UpsertUser {
     pub password: String,
     pub fullname: String,
     pub role_id: i32,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct LoginUser {
+    pub email: String,
+    pub password: String
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Claims {
+    pub sub: String,
+    pub exp: i64,
+    pub role: String
 }
 
 impl UpsertUser {

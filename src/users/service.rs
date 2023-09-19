@@ -9,6 +9,7 @@ pub mod service {
         users::model::{User, UpsertUser},
         schema
     };
+    use crate::users::model::Role;
     use crate::util::CustomError;
 
     type PooledPg = PooledConnection<ConnectionManager<PgConnection>>;
@@ -48,7 +49,18 @@ pub mod service {
             Ok(user)
         }
 
-        pub fn update(&mut self, user_id: i32, update_user: UpsertUser) -> Result<User, diesel::result::Error> {
+        pub fn readByEmail(&mut self, email: String) -> Result<Option<User>, Error> {
+            use schema::users;
+
+            let user = users::table
+                .filter(users::email.eq(email))
+                .get_result(&mut self.connection)
+                .optional()?;
+
+            Ok(user)
+        }
+
+        pub fn update(&mut self, user_id: i32, update_user: UpsertUser) -> Result<User, Error> {
             use schema::users;
 
             // Check if the user exists before attempting to update
@@ -91,6 +103,16 @@ pub mod service {
                     Err(Error::NotFound)
                 }
             }
+        }
+
+        pub fn fetchRoleByRoleId(&mut self, role_id: i32) -> Result<Option<Role>, diesel::result::Error> {
+            use schema::roles;
+
+            let role = roles::table.find(role_id)
+                .get_result(&mut self.connection)
+                .optional()?;
+
+            Ok(role)
         }
     }
 

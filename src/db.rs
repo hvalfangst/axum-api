@@ -1,16 +1,25 @@
 use std::sync::Arc;
 use diesel::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool};
-use crate::ConnectionPool;
 
-pub fn create_shared_connection_pool(database_url: String, max_size: u32) -> Arc<ConnectionPool> {
+#[derive(Clone)]
+pub struct ConnectionPool {
+    pub pool: Pool<ConnectionManager<PgConnection>>,
+}
+
+pub fn create_shared_connection_pool(database_url: String, max_size: u32) -> ConnectionPool {
+    eprintln!("Attempting to create shared connection pool");
     let manager = ConnectionManager::<PgConnection>::new(database_url);
+    eprintln!("ConnectionManager created");
+
     let pool = Pool::builder()
         .max_size(max_size)
         .build(manager)
-        .expect("Failed to create connection pool");
+        .unwrap();
 
-    Arc::new(ConnectionPool {
-        pool: pool.clone()
-    })
+    eprintln!("Pool created");
+
+    ConnectionPool {
+        pool,
+    }
 }

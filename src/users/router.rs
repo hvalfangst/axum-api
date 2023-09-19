@@ -4,23 +4,31 @@ pub mod router {
         time::Instant,
     };
     use serde_json::{json, Value};
+    use bcrypt::{ hash, verify};
     use axum::{extract, extract::State, http::StatusCode, Json, response::IntoResponse, Router};
     use crate::{
-        ConnectionPool,
+        db::ConnectionPool,
         users::{
             service::service::DbExecutor,
-            model::UpsertUser
+            model::UpsertUser,
+            model::LoginUser,
+            model::Claims
         },
     };
+    use std::collections::BTreeMap;
+    use std::time::{Duration, SystemTime};
+    use jsonwebtoken::{encode, EncodingKey, Header};
+
 
     // - - - - - - - - - - - [ROUTES] - - - - - - - - - - -
 
-    pub fn users_routes(shared_connection_pool: Arc<ConnectionPool>) -> Router {
+    pub fn users_routes(shared_connection_pool: ConnectionPool) -> Router {
         Router::new()
             .route("/users", axum::routing::post(create_user_handler))
             .route("/users/:user_id", axum::routing::get(read_user_handler))
             .route("/users/:user_id", axum::routing::put(update_user_handler))
             .route("/users/:user_id", axum::routing::delete(delete_user_handler))
+            .route("/users/login", axum::routing::post(login_user_handler))
             .with_state(shared_connection_pool)
     }
 
@@ -28,13 +36,26 @@ pub mod router {
     // - - - - - - - - - - - [HANDLERS] - - - - - - - - - - -
 
     pub async fn create_user_handler(
-        State(shared_state): State<Arc<ConnectionPool>>,
-        Json(body): Json<UpsertUser>,
+        State(shared_state): State<ConnectionPool>,
+        Json(mut body): Json<UpsertUser>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
 
+        // Validate format of field 'email'
         if !body.is_valid_email() {
             return Err((StatusCode::UNPROCESSABLE_ENTITY, Json(json!({"error": "Invalid input for field 'email'"}))))
         }
+
+        let hash_pw_begin = Instant::now();
+
+        // Hash password derived from request body
+        if let Ok(hashed_password) = hash(&body.password, 12) {
+            body.password = hashed_password;
+        } else {
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to hash password"}))));
+        }
+
+        let hash_pw_end = hash_pw_begin.elapsed();
+        println!("Time to hash pw: {:?}", hash_pw_end);
 
         let connection = shared_state.pool.get()
             .expect("Failed to acquire connection from pool");
@@ -42,15 +63,20 @@ pub mod router {
         let mut users = DbExecutor::new(connection);
 
         let create_user_begin = Instant::now();
-        let user = users.create(body).expect("Create user failed");
+
+        if let Err(err) = users.create(body.clone()) {
+            eprintln!("Create user failed: {:?}", err);
+            return Err((StatusCode::UNPROCESSABLE_ENTITY, Json(json!({"error": "Failed to create user"}))));
+        }
+
         let create_user_end = create_user_begin.elapsed();
         println!("Time to create user: {:?}", create_user_end);
 
-        Ok((StatusCode::CREATED, Json(user)))
+        Ok((StatusCode::CREATED, Json(body)))
     }
 
     pub async fn read_user_handler(
-        State(shared_state): State<Arc<ConnectionPool>>,
+        State(shared_state): State<ConnectionPool>,
         path: extract::Path<(i32,)>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         let (user_id,) = path.0;
@@ -76,7 +102,7 @@ pub mod router {
     }
 
     pub async fn update_user_handler(
-        State(shared_state): State<Arc<ConnectionPool>>,
+        State(shared_state): State<ConnectionPool>,
         path: extract::Path<(i32,)>,
         Json(update_user): Json<UpsertUser>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
@@ -100,7 +126,7 @@ pub mod router {
     }
 
     pub async fn delete_user_handler(
-        State(shared_state): State<Arc<ConnectionPool>>,
+        State(shared_state): State<ConnectionPool>,
         path: extract::Path<(i32,)>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         let (user_id,) = path.0;
@@ -118,6 +144,68 @@ pub mod router {
             }
         }
     }
+
+
+
+    pub async fn login_user_handler(
+        State(shared_state): State<ConnectionPool>,
+        Json(body): Json<LoginUser>,
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+
+        let connection = shared_state.pool.get()
+            .expect("Failed to acquire connection from pool");
+
+        let mut users = DbExecutor::new(connection);
+
+        match users.readByEmail(body.email.clone()) {
+            Ok(Some(user)) if body.email == user.email => {
+
+                // Verify the hashed password
+                if verify(&body.password, &user.password).unwrap_or(false) {
+
+                    // Fetch the user's role based on the roleId
+                    let role = match users.fetchRoleByRoleId(user.role_id) {
+                        Ok(Some(role)) => role,
+                        _ => {
+                            return Err((StatusCode::NOT_FOUND, Json(json!({"error": "Role not found"}))));
+                        }
+                    };
+
+
+                    let expiration = SystemTime::now()
+                        .checked_add(Duration::from_secs(3600)) // Set the token to expire in 1 hour
+                        .expect("Failed to calculate token expiration")
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .expect("SystemTime before UNIX EPOCH")
+                        .as_secs() as i64;
+
+                    let claims = Claims {
+                        sub: user.email.clone(),
+                        role: role.role_name.clone(),
+                        exp: expiration
+                    };
+
+                    // Generate and sign the token
+                    let token = encode(&Header::default(), &claims, &EncodingKey::from_secret("secret".as_ref())).unwrap();
+
+
+                    Ok((StatusCode::OK, Json(token)))
+                } else {
+                    Err((StatusCode::NOT_FOUND, Json(json!({"error": "Wrong password"}))))
+                }
+            },
+            Ok(Some(_)) => {
+                Err((StatusCode::NOT_FOUND, Json(json!({"error": "User not found"}))))
+            },
+            Ok(None) => {
+                Err((StatusCode::NOT_FOUND, Json(json!({"error": "User not found"}))))
+            },
+            Err(err) => {
+                eprintln!("Error reading user: {:?}", err);
+                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to read user"}))))
+            }
+        }
+     }
 
     #[cfg(test)]
     mod tests {

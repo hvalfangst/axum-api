@@ -8,14 +8,12 @@ use crate:: {
 
 mod locations;mod users;mod util;mod db;mod schema;
 
-pub struct ConnectionPool {
-    pool: Pool<ConnectionManager<PgConnection>>,
-}
-
 #[tokio::main]
 async fn main() {
     let database_url = load_environment_variable("DEV_DB");
+    eprintln!("Database URL: {}", database_url);
     let shared_connection_pool = create_shared_connection_pool(database_url, 1);
+    eprintln!("Shared connection pool created with {} max connections", shared_connection_pool.pool.max_size());
 
     axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
         .serve(users_routes(shared_connection_pool.clone())
