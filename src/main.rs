@@ -1,12 +1,11 @@
-use diesel::{PgConnection, r2d2::{ConnectionManager, Pool}};
 use crate:: {
-    db::create_shared_connection_pool,
+    common::db::create_shared_connection_pool,
     locations::router::router::locations_routes,
     users::router::router::users_routes,
-    util::load_environment_variable,
+    common::util::load_environment_variable,
 };
 
-mod locations;mod users;mod util;mod db;mod schema;
+mod locations;mod users;mod schema;mod common;
 
 #[tokio::main]
 async fn main() {

@@ -1,26 +1,27 @@
 pub mod service {
+
     use diesel::{
         prelude::*,
         PgConnection,
+        result::Error,
         r2d2::{ConnectionManager, PooledConnection},
     };
-    use diesel::result::Error;
+
     use crate::{
         users::model::{User, UpsertUser},
-        schema
+        schema,
+        common::error::CustomError
     };
-    use crate::users::model::Role;
-    use crate::util::CustomError;
 
     type PooledPg = PooledConnection<ConnectionManager<PgConnection>>;
 
-    pub struct DbExecutor {
+    pub struct UserDatabase {
         connection: PooledPg,
     }
 
-    impl DbExecutor {
-        pub fn new(connection: PooledPg) -> DbExecutor {
-            DbExecutor { connection }
+    impl UserDatabase {
+        pub fn new(connection: PooledPg) -> UserDatabase {
+            UserDatabase { connection }
         }
 
         pub fn create(&mut self, create_user: UpsertUser) -> Result<User, CustomError> {
@@ -39,7 +40,7 @@ pub mod service {
                 })
         }
 
-        pub fn read(&mut self, user_id: i32) -> Result<Option<User>, diesel::result::Error> {
+        pub fn get(&mut self, user_id: i32) -> Result<Option<User>, diesel::result::Error> {
             use schema::users;
 
             let user = users::table.find(user_id)
@@ -49,7 +50,7 @@ pub mod service {
             Ok(user)
         }
 
-        pub fn readByEmail(&mut self, email: String) -> Result<Option<User>, Error> {
+        pub fn get_by_email(&mut self, email: String) -> Result<Option<User>, Error> {
             use schema::users;
 
             let user = users::table
@@ -104,36 +105,28 @@ pub mod service {
                 }
             }
         }
-
-        pub fn fetchRoleByRoleId(&mut self, role_id: i32) -> Result<Option<Role>, diesel::result::Error> {
-            use schema::roles;
-
-            let role = roles::table.find(role_id)
-                .get_result(&mut self.connection)
-                .optional()?;
-
-            Ok(role)
-        }
     }
 
     #[cfg(test)]
     mod tests {
         use crate::{
-            create_shared_connection_pool,
-            load_environment_variable,
+            common::{
+                db::create_shared_connection_pool,
+                util::load_environment_variable,
+                error::ErrorType
+            },
             users::{
                 model::UpsertUser,
-                service::service::DbExecutor
+                service::service::UserDatabase
             }
         };
-        use crate::util::ErrorType;
 
         #[test]
         fn create_succeeds_on_valid_input() {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut db_executor = DbExecutor::new(connection);
+            let mut user_db = UserDatabase::new(connection);
 
             let new_user = UpsertUser {
                 email: "obelisksx@ifi.uio.no".to_string(),
@@ -142,7 +135,7 @@ pub mod service {
                 role_id: 1
             };
 
-            let created_user = db_executor.create(new_user.clone()).expect("Create user failed");
+            let created_user = user_db.create(new_user.clone()).expect("Create user failed");
 
             assert_eq!(created_user.email, new_user.email);
             assert_eq!(created_user.password, new_user.password);
@@ -155,7 +148,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut db_executor = DbExecutor::new(connection);
+            let mut user_db = UserDatabase::new(connection);
 
             let dupe_user = UpsertUser {
                 email: "duperdave@blizzard.com".to_string(),
@@ -165,7 +158,7 @@ pub mod service {
             };
 
             // First create should succeed
-            let first_create_result = db_executor.create(dupe_user.clone());
+            let first_create_result = user_db.create(dupe_user.clone());
             assert!(first_create_result.is_ok()); // Check if it's Ok
 
             let first_create = match first_create_result {
@@ -179,7 +172,7 @@ pub mod service {
             assert_eq!(first_create.role_id, dupe_user.role_id);
 
             // Second create should fail due to violation of unique constraint on 'email'
-            let second_create = db_executor.create(dupe_user.clone());
+            let second_create = user_db.create(dupe_user.clone());
             assert!(second_create.is_err());
 
             // Check the specific error type (BadRequest) and message
@@ -199,7 +192,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut db_executor = DbExecutor::new(connection);
+            let mut user_db = UserDatabase::new(connection);
 
             let new_user = UpsertUser {
                 email: "kokemakken@tremakk.no".to_string(),
@@ -208,8 +201,8 @@ pub mod service {
                 role_id: 1
             };
 
-            let created_user = db_executor.create(new_user.clone()).expect("Create user failed");
-            let retrieved_user = db_executor.read(created_user.id).expect("Read user failed").unwrap();
+            let created_user = user_db.create(new_user.clone()).expect("Create user failed");
+            let retrieved_user = user_db.get(created_user.id).expect("Read user failed").unwrap();
 
             assert_eq!(retrieved_user.email, new_user.email);
             assert_eq!(retrieved_user.password, new_user.password);
@@ -222,9 +215,9 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut db_executor = DbExecutor::new(connection);
+            let mut user_db = UserDatabase::new(connection);
 
-            let retrieved_user = db_executor.read(-666); // Use a non-existing ID
+            let retrieved_user = user_db.get(-666); // Use a non-existing ID
 
             assert!(retrieved_user.is_ok()); // Expecting Ok(none)
             assert!((retrieved_user.unwrap().is_none()));
@@ -235,7 +228,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut db_executor = DbExecutor::new(connection);
+            let mut user_db = UserDatabase::new(connection);
 
             let original_request = UpsertUser {
                 email: "pondi@wwf.com".to_string(),
@@ -244,7 +237,7 @@ pub mod service {
                 role_id: 1
             };
 
-            let original_user = db_executor.create(original_request.clone()).expect("Create user failed");
+            let original_user = user_db.create(original_request.clone()).expect("Create user failed");
 
             let updated_request = UpsertUser {
                 email: "uhi@wwf.com".to_string(),
@@ -253,7 +246,7 @@ pub mod service {
                 role_id: 1
             };
 
-            let updated_user = db_executor.update(original_user.id, updated_request.clone()).expect("Update user failed");
+            let updated_user = user_db.update(original_user.id, updated_request.clone()).expect("Update user failed");
 
             assert_eq!(updated_user.email, updated_request.email);
             assert_eq!(updated_user.password, updated_request.password);
@@ -266,7 +259,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut db_executor = DbExecutor::new(connection);
+            let mut user_db = UserDatabase::new(connection);
 
             let request = UpsertUser {
                 email: "lukewarm@manlet.com".to_string(),
@@ -275,7 +268,7 @@ pub mod service {
                 role_id: 1
             };
 
-            let result = db_executor.update(-666, request.clone());  // Use a non-existent ID
+            let result = user_db.update(-666, request.clone());  // Use a non-existent ID
 
             assert!(result.is_err());  // Expecting an error as the ID is not present
         }
@@ -285,7 +278,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut db_executor = DbExecutor::new(connection);
+            let mut user_db = UserDatabase::new(connection);
 
             let request = UpsertUser {
                 email: "world.according.to.jesse@mongols.com".to_string(),
@@ -294,9 +287,9 @@ pub mod service {
                 role_id: 1
             };
 
-            let user = db_executor.create(request.clone()).expect("Create user failed");
-            db_executor.delete(user.id.clone()).expect("Delete user failed");
-            let deleted_user = db_executor.read(user.id).expect("Read user failed");
+            let user = user_db.create(request.clone()).expect("Create user failed");
+            user_db.delete(user.id.clone()).expect("Delete user failed");
+            let deleted_user = user_db.get(user.id).expect("Read user failed");
 
             assert!(deleted_user.is_none()); // Expecting lack of value as user has been deleted
         }
@@ -306,8 +299,8 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut db_executor = DbExecutor::new(connection);
-            let result = db_executor.delete(-666);  // Use a non-existent ID
+            let mut user_db = UserDatabase::new(connection);
+            let result = user_db.delete(-666);  // Use a non-existent ID
 
             assert!(result.is_err());  // Expecting an error as the ID is not present
         }

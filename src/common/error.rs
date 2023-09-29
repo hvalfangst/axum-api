@@ -1,14 +1,4 @@
-use std::{env, fmt};
-use axum::http;
-use axum::{extract::Extension, handler::Handler};
-use std::str::from_utf8;
-use dotenvy::dotenv;
-
-pub fn load_environment_variable(variable_name: &str) -> String {
-    dotenv().ok();
-    env::var(variable_name)
-        .expect(&format!("{} must be set", variable_name))
-}
+use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum ErrorType {
@@ -23,19 +13,9 @@ pub struct CustomError {
     pub message: String,
 }
 
-
-
 impl CustomError {
     pub fn new(message: &str, err_type: ErrorType) -> CustomError {
         CustomError { message: message.to_string(), err_type }
-    }
-
-    pub fn to_http_status(&self) -> http::StatusCode {
-        match self.err_type {
-            ErrorType::NotFound =>  http::StatusCode::NOT_FOUND,
-            ErrorType::Internal => http::StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorType::UniqueViolation => http::StatusCode::BAD_REQUEST,
-        }
     }
 
     pub fn from_diesel_err(err: diesel::result::Error, context: &str) -> CustomError {
@@ -49,7 +29,6 @@ impl CustomError {
                     }
                 }
                 diesel::result::Error::NotFound => ErrorType::NotFound,
-                // Here we can handle other cases if needed
                 _ => {
                     ErrorType::Internal
                 }
