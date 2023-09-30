@@ -10,9 +10,9 @@ pub mod router {
             service::service::LocationDatabase as locationsDB,
             model::UpsertLocation
         },
+        users::model::UserRole,
         common::security:: {enforce_role_policy, decode_claims}
     };
-    use crate::users::model::UserRole;
 
     // - - - - - - - - - - - [ROUTES] - - - - - - - - - - -
 
@@ -135,28 +135,61 @@ pub mod router {
             body::Body,
             http::{Request, StatusCode}
         };
-        use http::HeaderMap;
         use serde_json::json;
         use tower::ServiceExt;
         use crate::{
             common::{
                 db::create_shared_connection_pool,
-                util::load_environment_variable
+                util::load_environment_variable,
+                security::hash_password
             },
             locations::{
                 model::UpsertLocation,
                 service::service::LocationDatabase
             },
+            users::{
+                model::UpsertUser,
+                service::service::UserDatabase
+            },
             locations_routes
         };
+        use crate::common::db::ConnectionPool;
+        use crate::common::security::generate_token;
+        use crate::users::model::UserRole;
+
+        // Helper method utilized to create user with a specific role and return the associated bearer token in one line of code
+        pub fn create_user_and_generate_token(connection_pool: ConnectionPool, email: &str, user_role: UserRole) ->  Result<String, jsonwebtoken::errors::Error>{
+
+            // Only email and role_id are mutable as password and fullname has no constraints
+            let mut new_user = UpsertUser {
+                email: email.to_string(),
+                role_id: user_role.to_int(),
+                password: "StålGardinerFunkerFjell53".to_string(),
+                fullname: "Josef Stålhard".to_string()
+            };
+
+            // Hash the password
+            hash_password(&mut new_user).expect("Hash failed");
+
+            // Perform the user creation
+            let create_user_result = {
+                let connection = connection_pool.pool.get().expect("Failed to get connection");
+                UserDatabase::new(connection).create(new_user.clone())
+            };
+
+            // Generate the bearer token
+            generate_token(&create_user_result.unwrap())
+        }
 
         #[tokio::test]
-        async fn post_locations_returns_201_on_valid_data() {
+        async fn post_locations_returns_201_for_authorized_user_with_write_access() {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
-            let service = locations_routes(connection_pool);
+            let service = locations_routes(connection_pool.clone());
 
-            // Data
+            // Create user with role WRITER and generate associated bearer token
+            let bearer_token = create_user_and_generate_token(connection_pool,"stål.hard.russer@ugreit.ru", UserRole::WRITER);
+
             let request_body = UpsertLocation {
                 star_system: "Fountain".to_string(),
                 area: "The Serpent's Lair".to_string(),
@@ -167,6 +200,7 @@ pub mod router {
                 .uri("/locations")
                 .method("POST")
                 .header("content-type", "application/json")
+                .header("Authorization", format!("Bearer {}", bearer_token.unwrap())) // Add the bearer token
                 .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                 .unwrap();
 
@@ -178,6 +212,39 @@ pub mod router {
 
             // Assert that the response status is 201
             assert_eq!(response.status(), StatusCode::CREATED);
+        }
+
+        #[tokio::test]
+        async fn post_locations_returns_401_for_unauthorized_user_without_write_access() {
+            let database_url = load_environment_variable("TEST_DB");
+            let connection_pool = create_shared_connection_pool(database_url, 1);
+            let service = locations_routes(connection_pool.clone());
+
+            // Create user with role READER and generate associated bearer token
+            let bearer_token = create_user_and_generate_token(connection_pool, "myk.og.ekkel.russer@put.in", UserRole::READER);
+
+            let request_body = UpsertLocation {
+                star_system: "Fountain".to_string(),
+                area: "The Serpent's Lair".to_string(),
+            };
+
+            // Create a request with the above data as payload
+            let request = Request::builder()
+                .uri("/locations")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header("Authorization", format!("Bearer {}", bearer_token.unwrap())) // Add the bearer token
+                .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+                .unwrap();
+
+            // Send the request through the service
+            let response = service
+                .oneshot(request)
+                .await
+                .unwrap();
+
+            // Assert that the response status is 401
+            assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
         }
 
         #[tokio::test]

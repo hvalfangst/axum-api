@@ -23,6 +23,18 @@ pub enum UserRole {
     INVALID
 }
 
+impl UserRole {
+    pub fn to_int(&self) -> i32 {
+        match self {
+            UserRole::READER => 1,
+            UserRole::WRITER => 2,
+            UserRole::EDITOR => 3,
+            UserRole::ADMIN => 4,
+            _ => -666
+        }
+    }
+}
+
 impl fmt::Display for UserRole {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
