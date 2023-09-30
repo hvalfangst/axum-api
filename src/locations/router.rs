@@ -39,7 +39,7 @@ pub mod router {
             Err((status_code, json_value)) => return Err((status_code, json_value)),
         };
 
-        // Ensure that the user derived from claims exists and has the role 'WRITER'
+        // Ensure that the user derived from claims exists and has the role 'WRITER' or higher
         let authorization = enforce_role_policy(&shared_state, &claims, UserRole::WRITER).await;
 
         match authorization {
@@ -55,77 +55,116 @@ pub mod router {
                     }
                 }
             }
-            Err(err) => Err(err),
+            Err(err) => Err(err)
         }
     }
 
     pub async fn read_location_handler(
+        headers: HeaderMap,
         State(shared_state): State<ConnectionPool>,
         path: extract::Path<(i32,)>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         let (location_id,) = path.0;
 
-        let connection = shared_state.pool.get()
-            .expect("Failed to acquire connection from pool");
+        // Decode claims from bearer token header
+        let claims = match decode_claims(&headers) {
+            Ok(claims) => claims,
+            Err((status_code, json_value)) => return Err((status_code, json_value)),
+        };
 
-        let mut locations = locationsDB::new(connection);
+        // Ensure that the user derived from claims exists and has the role 'READER' or higher
+        let authorization = enforce_role_policy(&shared_state, &claims, UserRole::READER).await;
 
-        match locations.get(location_id) {
-            Ok(location) => {
-                if let Some(location) = location {
-                    Ok((StatusCode::OK, Json(location)))
-                } else {
-                    Err((StatusCode::NOT_FOUND, Json(json!({"error": "Location not found"}))))
+        match authorization {
+            Ok(authorized_user) => {
+                let connection = shared_state.pool.get()
+                    .expect("Failed to acquire connection from pool");
+
+                match locationsDB::new(connection).get(location_id) {
+                    Ok(location) => {
+                        if let Some(location) = location {
+                            Ok((StatusCode::OK, Json(location)))
+                        } else {
+                            Err((StatusCode::NOT_FOUND, Json(json!({"error": "Location not found"}))))
+                        }
+                    },
+                    Err(err) => {
+                        eprintln!("Error reading location: {:?}", err);
+                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to read location"}))))
+                    }
                 }
-            },
-            Err(err) => {
-                eprintln!("Error reading location: {:?}", err);
-                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to read location"}))))
             }
+            Err(err) => Err(err)
         }
     }
 
     pub async fn update_location_handler(
+        headers: HeaderMap,
         State(shared_state): State<ConnectionPool>,
         path: extract::Path<(i32,)>,
         Json(upsert_location): Json<UpsertLocation>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         let (location_id,) = path.0;
 
-        let connection = shared_state.pool.get()
-            .expect("Failed to acquire connection from pool");
+        // Decode claims from bearer token header
+        let claims = match decode_claims(&headers) {
+            Ok(claims) => claims,
+            Err((status_code, json_value)) => return Err((status_code, json_value)),
+        };
 
-        let mut locations = locationsDB::new(connection);
+        // Ensure that the user derived from claims exists and has the role 'EDITOR' or higher
+        let authorization = enforce_role_policy(&shared_state, &claims, UserRole::EDITOR).await;
 
-        match locations.update(location_id, upsert_location) {
-            Ok(updated_location) => Ok((StatusCode::OK, Json(updated_location))),
-            Err(diesel::result::Error::NotFound) => {
-                Err((StatusCode::NOT_FOUND, Json(json!({"error": "Location not found"}))))
-            },
-            Err(err) => {
-                eprintln!("Error updating location: {:?}", err);
-                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to update location"}))))
+        match authorization {
+            Ok(authorized_user) => {
+                let connection = shared_state.pool.get()
+                    .expect("Failed to acquire connection from pool");
+
+                match locationsDB::new(connection).update(location_id, upsert_location) {
+                    Ok(updated_location) => Ok((StatusCode::OK, Json(updated_location))),
+                    Err(diesel::result::Error::NotFound) => {
+                        Err((StatusCode::NOT_FOUND, Json(json!({"error": "Location not found"}))))
+                    },
+                    Err(err) => {
+                        eprintln!("Error updating location: {:?}", err);
+                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to update location"}))))
+                    }
+                }
             }
+            Err(err) => Err(err)
         }
     }
 
     pub async fn delete_location_handler(
+        headers: HeaderMap,
         State(shared_state): State<ConnectionPool>,
         path: extract::Path<(i32,)>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         let (location_id,) = path.0;
 
-        let connection = shared_state.pool.get()
-            .expect("Failed to acquire connection from pool");
+        // Decode claims from bearer token header
+        let claims = match decode_claims(&headers) {
+            Ok(claims) => claims,
+            Err((status_code, json_value)) => return Err((status_code, json_value)),
+        };
 
-        let mut locations = locationsDB::new(connection);
+        // Ensure that the user derived from claims exists and has the role 'ADMIN'
+        let authorization = enforce_role_policy(&shared_state, &claims, UserRole::ADMIN).await;
 
-        match locations.delete(location_id) {
-            Ok(_) => Ok((StatusCode::NO_CONTENT, ())),
-            Err(err) => {
-                eprintln!("Error deleting location: {:?}", err);
-                Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to delete location"}))))
+        match authorization {
+            Ok(authorized_user) => {
+                let connection = shared_state.pool.get()
+                    .expect("Failed to acquire connection from pool");
+
+                match locationsDB::new(connection).delete(location_id) {
+                    Ok(_) => Ok((StatusCode::NO_CONTENT, ())),
+                    Err(err) => {
+                        eprintln!("Error deleting location: {:?}", err);
+                        Err((StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "Failed to delete location"}))))
+                    }
+                }
             }
+            Err(err) => Err(err)
         }
     }
 

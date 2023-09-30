@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
 use axum::{http, Json};
 use bcrypt::hash;
@@ -55,8 +56,6 @@ pub fn decode_claims(headers: &HeaderMap) -> Result<Option<TokenData<Claims>>, (
         Some(header) => header.to_str().unwrap(),
     };
 
-    eprintln!("Token: {:?}", token);
-
     // Return error if the the token does not start with "Bearer"
     if !token.starts_with("Bearer ") {
         eprintln!("Token is missing 'Bearer ' prefix");
@@ -109,15 +108,22 @@ pub async fn enforce_role_policy(
             let user_role = int_to_user_role(user.clone().unwrap().role_id);
             let claims_role = claims.clone().unwrap().claims.role;
 
-            if user_role != required_role {
-                eprintln!("User role: {} does not match required role: {}", user_role, required_role);
-                Err((StatusCode::UNAUTHORIZED,
-                     Json(json!({"error": format!("Current role of {} does not match the required role of {}", user_role, required_role)}))))
-            } else if user_role != claims_role {
-                eprintln!("Role in claims, {} does not match role in DB: {}", claims_role, user_role);
-                Err((StatusCode::UNAUTHORIZED, Json(json!({"error": "Roles in claims differ from DB"}))))
-            } else {
+            // Accessing this map under UserRole key will return a list of associated subset roles
+            let role_hierarchy: HashMap<UserRole, Vec<UserRole>> = {
+                let mut hierarchy = HashMap::new();
+                hierarchy.insert(UserRole::ADMIN, vec![UserRole::ADMIN, UserRole::EDITOR, UserRole::WRITER, UserRole::READER]);
+                hierarchy.insert(UserRole::EDITOR, vec![UserRole::EDITOR, UserRole::WRITER, UserRole::READER]);
+                hierarchy.insert(UserRole::WRITER, vec![UserRole::WRITER, UserRole::READER]);
+                hierarchy
+            };
+
+            // Check if the list of UserRoles associated with HashMap retrieval under key '&user_role' contains the required role '&required_role'
+            if role_hierarchy.get(&user_role).map(|roles| roles.contains(&required_role)).unwrap_or(false) {
+                eprintln!("Access granted: User role '{}' is a superset of or equal to required role '{}'", user_role, required_role);
                 Ok(user)
+            } else {
+                eprintln!("User role: {} does not match required role: {}", user_role, required_role);
+                Err((StatusCode::UNAUTHORIZED, Json(json!({"error": format!("Current role of {} does not have access to {}", user_role, required_role)}))))
             }
         }
         Err(err) => {

@@ -14,7 +14,7 @@ pub struct User {
     pub role_id: i32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum UserRole {
     READER,
     WRITER,
