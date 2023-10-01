@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use crate::{
     common::{db::ConnectionPool, util::load_environment_variable},
     users::{
-        model::{Claims, User, UpsertUser, UserRole, int_to_user_role},
+        model::{Claims, User, UpsertUser, UserRole, string_to_user_role},
         service::service::UserDatabase as UsersDB,
     },
 };
@@ -23,7 +23,7 @@ pub fn hash_password(body: &mut UpsertUser) -> Result<(), (StatusCode, Json<Valu
 }
 
 pub fn generate_token(user: &User) -> Result<String, jsonwebtoken::errors::Error> {
-    let role = int_to_user_role(user.clone().role_id);
+    let role = string_to_user_role(user.clone().role);
     let expiration = SystemTime::now()
         .checked_add(Duration::from_secs(3600)) // Set the token to expire in 1 hour
         .expect("Failed to calculate token expiration")
@@ -105,7 +105,7 @@ pub async fn enforce_role_policy(
 
     match users.get_by_email(claims.clone().unwrap().claims.sub) {
         Ok(user) => {
-            let user_role = int_to_user_role(user.clone().unwrap().role_id);
+            let user_role = string_to_user_role(user.clone().unwrap().role);
             let claims_role = claims.clone().unwrap().claims.role;
 
             // Accessing this map under UserRole key will return a list of associated subset roles

@@ -174,7 +174,7 @@ pub mod router {
                 email: "valid@email.com".to_string(),
                 password: "Big100".to_string(),
                 fullname: "Kenneth Molasses".to_string(),
-                role_id: 1
+                role: "READER".to_string()
             };
 
             // Create a request with the above data as payload
@@ -205,7 +205,7 @@ pub mod router {
                 email: "eg-klare-meg".to_string(),
                 password: "Big100".to_string(),
                 fullname: "Kenneth Molasses".to_string(),
-                role_id: 1
+                role: "READER".to_string()
             };
 
             // Create a request with the above data as payload
@@ -239,7 +239,7 @@ pub mod router {
                 email: "ernst@snowmail.com".to_string(),
                 password: "feltedsnowmen".to_string(),
                 fullname: "Ernst van Schnee".to_string(),
-                role_id: 1
+                role: "READER".to_string()
             };
 
             // Create a new location with the above data
@@ -249,14 +249,14 @@ pub mod router {
             assert_eq!(request_body.email, created_user.email);
             assert_eq!(request_body.password, created_user.password);
             assert_eq!(request_body.fullname, created_user.fullname);
-            assert_eq!(request_body.role_id, created_user.role_id);
+            assert_eq!(request_body.role, created_user.role);
 
             // Data
             let updated_request_body = UpsertUser {
                 email: "ernst@snowmail.com".to_string(),
                 password: "feltseng?".to_string(),
                 fullname: "Ernst van Schnee".to_string(),
-                role_id: 1
+                role: "READER".to_string()
             };
 
             // Create a request with the above data as payload
@@ -286,7 +286,7 @@ pub mod router {
                 "email": updated_request_body.email,
                 "password": updated_request_body.password,
                 "fullname": updated_request_body.fullname,
-                "role_id": updated_request_body.role_id
+                "role": updated_request_body.role
             });
 
             // Assert equality
@@ -305,7 +305,7 @@ pub mod router {
                 email: "glossy@ringdue.no".to_string(),
                 password: "LillePostBudMin".to_string(),
                 fullname: "Glossy Garnished".to_string(),
-                role_id: 1
+                role: "READER".to_string()
             };
 
             // Create a new location with the above data
@@ -337,7 +337,7 @@ pub mod router {
                 "email": request_body.email,
                 "password": request_body.password,
                 "fullname": request_body.fullname,
-                "role_id": request_body.role_id
+                "role": request_body.role
             });
 
             // Assert equality
@@ -379,7 +379,7 @@ pub mod router {
                 email: "josek@ifi.uio.no".to_string(),
                 password: "TurboPascalLife".to_string(),
                 fullname: "Jose Kernelio".to_string(),
-                role_id: 1
+                role: "READER".to_string()
             };
 
             // Create a new user with the above data

@@ -11,7 +11,7 @@ pub struct User {
     pub email: String,
     pub password: String,
     pub fullname: String,
-    pub role_id: i32,
+    pub role: String
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -24,13 +24,13 @@ pub enum UserRole {
 }
 
 impl UserRole {
-    pub fn to_int(&self) -> i32 {
+    pub fn to_string(&self) -> String {
         match self {
-            UserRole::READER => 1,
-            UserRole::WRITER => 2,
-            UserRole::EDITOR => 3,
-            UserRole::ADMIN => 4,
-            _ => -666
+            UserRole::READER => "READER".to_string(),
+            UserRole::WRITER => "WRITER".to_string(),
+            UserRole::EDITOR => "EDITOR".to_string(),
+            UserRole::ADMIN => "ADMIN".to_string(),
+            _ => "INVALID".to_string()
         }
     }
 }
@@ -47,15 +47,16 @@ impl fmt::Display for UserRole {
     }
 }
 
-pub fn int_to_user_role(role_id: i32) -> UserRole {
-    match role_id {
-        1 => UserRole::READER,
-        2 => UserRole::WRITER,
-        3 => UserRole::EDITOR,
-        4 => UserRole::ADMIN,
+pub fn string_to_user_role(role: String) -> UserRole {
+    match role.as_str() {
+        "READER" => UserRole::READER,
+        "WRITER" => UserRole::WRITER,
+        "EDITOR" => UserRole::EDITOR,
+        "ADMIN" => UserRole::ADMIN,
         _ => UserRole::INVALID
     }
 }
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, Insertable)]
 #[diesel(table_name = users)]
@@ -63,7 +64,7 @@ pub struct UpsertUser {
     pub email: String,
     pub password: String,
     pub fullname: String,
-    pub role_id: i32,
+    pub role: String,
 }
 
 impl UpsertUser {

@@ -199,10 +199,10 @@ pub mod router {
         // Helper method utilized to create user with a specific role and return the associated bearer token in one line of code
         pub fn create_user_and_generate_token(connection_pool: ConnectionPool, email: &str, user_role: UserRole) ->  Result<String, jsonwebtoken::errors::Error>{
 
-            // Only email and role_id are mutable as password and fullname has no constraints
+            // Only email and role are mutable as password and fullname has no constraints
             let mut new_user = UpsertUser {
                 email: email.to_string(),
-                role_id: user_role.to_int(),
+                role: user_role.to_string(),
                 password: "StålGardinerFunkerFjell53".to_string(),
                 fullname: "Josef Stålhard".to_string()
             };
@@ -457,5 +457,8 @@ pub mod router {
             // Assert that the deleted location is None (i.e., it doesn't exist)
             assert!(deleted_location.is_none());
         }
+
+        //TODO: Create tests for READ, UPDATE, DELETE and missing headers
+        // Also create tests in Security module
     }
 }

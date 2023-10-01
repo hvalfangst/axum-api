@@ -32,7 +32,7 @@ pub mod service {
                     users::email.eq(&create_user.email),
                     users::password.eq(&create_user.password),
                     users::fullname.eq(&create_user.fullname),
-                    users::role_id.eq(&create_user.role_id),
+                    users::role.eq(&create_user.role),
                 ))
                 .get_result::<User>(&mut self.connection)
                 .map_err(|err| {
@@ -75,7 +75,7 @@ pub mod service {
                             users::email.eq(&update_user.email),
                             users::password.eq(&update_user.password),
                             users::fullname.eq(&update_user.fullname),
-                            users::role_id.eq(&update_user.role_id),
+                            users::role.eq(&update_user.role),
                         ))
                         .get_result(&mut self.connection)
                         .expect("Update user failed");
@@ -132,7 +132,7 @@ pub mod service {
                 email: "obelisksx@ifi.uio.no".to_string(),
                 password: "EatSleepRepeat".to_string(),
                 fullname: "Obelix fra IFI".to_string(),
-                role_id: 1
+                role: "READER".to_string()
             };
 
             let created_user = user_db.create(new_user.clone()).expect("Create user failed");
@@ -140,7 +140,7 @@ pub mod service {
             assert_eq!(created_user.email, new_user.email);
             assert_eq!(created_user.password, new_user.password);
             assert_eq!(created_user.fullname, new_user.fullname);
-            assert_eq!(created_user.role_id, new_user.role_id);
+            assert_eq!(created_user.role, new_user.role);
         }
 
         #[test]
@@ -154,7 +154,7 @@ pub mod service {
                 email: "duperdave@blizzard.com".to_string(),
                 password: "GullDagger69".to_string(),
                 fullname: "Mule Duperino".to_string(),
-                role_id: 1
+                role: "READER".to_string()
             };
 
             // First create should succeed
@@ -169,7 +169,7 @@ pub mod service {
             assert_eq!(first_create.email, dupe_user.email);
             assert_eq!(first_create.password, dupe_user.password);
             assert_eq!(first_create.fullname, dupe_user.fullname);
-            assert_eq!(first_create.role_id, dupe_user.role_id);
+            assert_eq!(first_create.role, dupe_user.role);
 
             // Second create should fail due to violation of unique constraint on 'email'
             let second_create = user_db.create(dupe_user.clone());
@@ -198,7 +198,7 @@ pub mod service {
                 email: "kokemakken@tremakk.no".to_string(),
                 password: "huuuuuman".to_string(),
                 fullname: "Woodwormius".to_string(),
-                role_id: 1
+                role: "READER".to_string()
             };
 
             let created_user = user_db.create(new_user.clone()).expect("Create user failed");
@@ -207,7 +207,7 @@ pub mod service {
             assert_eq!(retrieved_user.email, new_user.email);
             assert_eq!(retrieved_user.password, new_user.password);
             assert_eq!(retrieved_user.fullname, new_user.fullname);
-            assert_eq!(retrieved_user.role_id, new_user.role_id);
+            assert_eq!(retrieved_user.role, new_user.role);
         }
 
         #[test]
@@ -234,7 +234,7 @@ pub mod service {
                 email: "pondi@wwf.com".to_string(),
                 password: "SnorkSnorkSnork".to_string(),
                 fullname: "Panda Pondi".to_string(),
-                role_id: 1
+                role: "READER".to_string()
             };
 
             let original_user = user_db.create(original_request.clone()).expect("Create user failed");
@@ -243,7 +243,7 @@ pub mod service {
                 email: "uhi@wwf.com".to_string(),
                 password: "SlafsSlafsSlaf".to_string(),
                 fullname: "Panda Pondi".to_string(),
-                role_id: 1
+                role: "READER".to_string()
             };
 
             let updated_user = user_db.update(original_user.id, updated_request.clone()).expect("Update user failed");
@@ -251,7 +251,7 @@ pub mod service {
             assert_eq!(updated_user.email, updated_request.email);
             assert_eq!(updated_user.password, updated_request.password);
             assert_eq!(updated_user.fullname, updated_request.fullname);
-            assert_eq!(updated_user.role_id, updated_request.role_id);
+            assert_eq!(updated_user.role, updated_request.role);
         }
 
         #[test]
@@ -265,7 +265,7 @@ pub mod service {
                 email: "lukewarm@manlet.com".to_string(),
                 password: "realfrogeyes".to_string(),
                 fullname: "Lukas Parrot".to_string(),
-                role_id: 1
+                role: "READER".to_string()
             };
 
             let result = user_db.update(-666, request.clone());  // Use a non-existent ID
@@ -284,7 +284,7 @@ pub mod service {
                 email: "world.according.to.jesse@mongols.com".to_string(),
                 password: "bunchofslackjawedfgets".to_string(),
                 fullname: "Jesse Ventura".to_string(),
-                role_id: 1
+                role: "READER".to_string()
             };
 
             let user = user_db.create(request.clone()).expect("Create user failed");
