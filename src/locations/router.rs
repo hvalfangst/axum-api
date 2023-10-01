@@ -76,7 +76,7 @@ pub mod router {
         let authorization = enforce_role_policy(&shared_state, &claims, UserRole::READER).await;
 
         match authorization {
-            Ok(authorized_user) => {
+            Ok(_authorized_user) => {
                 let connection = shared_state.pool.get()
                     .expect("Failed to acquire connection from pool");
 
@@ -116,7 +116,7 @@ pub mod router {
         let authorization = enforce_role_policy(&shared_state, &claims, UserRole::EDITOR).await;
 
         match authorization {
-            Ok(authorized_user) => {
+            Ok(_authorized_user) => {
                 let connection = shared_state.pool.get()
                     .expect("Failed to acquire connection from pool");
 
@@ -152,7 +152,7 @@ pub mod router {
         let authorization = enforce_role_policy(&shared_state, &claims, UserRole::ADMIN).await;
 
         match authorization {
-            Ok(authorized_user) => {
+            Ok(_authorized_user) => {
                 let connection = shared_state.pool.get()
                     .expect("Failed to acquire connection from pool");
 

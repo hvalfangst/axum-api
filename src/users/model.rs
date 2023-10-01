@@ -23,18 +23,6 @@ pub enum UserRole {
     INVALID
 }
 
-impl UserRole {
-    pub fn to_string(&self) -> String {
-        match self {
-            UserRole::READER => "READER".to_string(),
-            UserRole::WRITER => "WRITER".to_string(),
-            UserRole::EDITOR => "EDITOR".to_string(),
-            UserRole::ADMIN => "ADMIN".to_string(),
-            _ => "INVALID".to_string()
-        }
-    }
-}
-
 impl fmt::Display for UserRole {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

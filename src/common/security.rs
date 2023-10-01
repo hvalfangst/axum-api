@@ -106,7 +106,6 @@ pub async fn enforce_role_policy(
     match users.get_by_email(claims.clone().unwrap().claims.sub) {
         Ok(user) => {
             let user_role = string_to_user_role(user.clone().unwrap().role);
-            let claims_role = claims.clone().unwrap().claims.role;
 
             // Accessing this map under UserRole key will return a list of associated subset roles
             let role_hierarchy: HashMap<UserRole, Vec<UserRole>> = {
