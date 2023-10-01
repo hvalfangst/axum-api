@@ -114,6 +114,7 @@ pub async fn enforce_role_policy(
                 hierarchy.insert(UserRole::ADMIN, vec![UserRole::ADMIN, UserRole::EDITOR, UserRole::WRITER, UserRole::READER]);
                 hierarchy.insert(UserRole::EDITOR, vec![UserRole::EDITOR, UserRole::WRITER, UserRole::READER]);
                 hierarchy.insert(UserRole::WRITER, vec![UserRole::WRITER, UserRole::READER]);
+                hierarchy.insert(UserRole::READER, vec![UserRole::READER]);
                 hierarchy
             };
 
