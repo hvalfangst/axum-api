@@ -9,7 +9,7 @@ use crate::{
     common::{db::ConnectionPool, util::load_environment_variable},
     users::{
         model::{Claims, User, UpsertUser, UserRole, string_to_user_role},
-        service::service::UserDatabase as UsersDB,
+        service::service::UsersTable as UsersDB,
     },
 };
 

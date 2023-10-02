@@ -11,13 +11,13 @@ pub mod service {
 
     type PooledPg = PooledConnection<ConnectionManager<PgConnection>>;
 
-    pub struct LocationDatabase {
+    pub struct LocationsTable {
         connection: PooledPg,
     }
 
-    impl LocationDatabase {
-        pub fn new(connection: PooledPg) -> LocationDatabase {
-            LocationDatabase { connection }
+    impl LocationsTable {
+        pub fn new(connection: PooledPg) -> LocationsTable {
+            LocationsTable { connection }
         }
 
         pub fn create(&mut self, upsert_location: UpsertLocation) -> Result<Location, diesel::result::Error> {
@@ -96,7 +96,7 @@ pub mod service {
             },
             locations::{
                 model::UpsertLocation,
-                service::service::LocationDatabase
+                service::service::LocationsTable
             }
         };
 
@@ -105,7 +105,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
+            let mut location_db = LocationsTable::new(connection);
 
             let new_location = UpsertLocation {
                 star_system: "Test Star System".to_string(),
@@ -124,7 +124,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
+            let mut location_db = LocationsTable::new(connection);
 
             let new_location = UpsertLocation {
                 star_system: "Test Star System".to_string(),
@@ -143,7 +143,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
+            let mut location_db = LocationsTable::new(connection);
 
             let retrieved_location = location_db.get(-666);  // Use a non-existent ID
             assert!(retrieved_location.is_ok());  // Expecting Ok(None)
@@ -156,7 +156,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
+            let mut location_db = LocationsTable::new(connection);
 
             let new_location = UpsertLocation {
                 star_system: "Test Star System".to_string(),
@@ -179,7 +179,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
+            let mut location_db = LocationsTable::new(connection);
 
             let request = UpsertLocation {
                 star_system: "This test will fail".to_string(),
@@ -196,7 +196,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
+            let mut location_db = LocationsTable::new(connection);
 
             let new_location = UpsertLocation {
                 star_system: "Test Star System".to_string(),
@@ -214,7 +214,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
+            let mut location_db = LocationsTable::new(connection);
 
             let result = location_db.delete(-666);  // Use a non-existent ID
             assert!(result.is_err());  // Expecting an error as the ID is not present

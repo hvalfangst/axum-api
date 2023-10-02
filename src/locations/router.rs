@@ -7,7 +7,7 @@ pub mod router {
     use crate::{
         common::db::ConnectionPool,
         locations::{
-            service::service::LocationDatabase as locationsDB,
+            service::service::LocationsTable as locationsDB,
             model::UpsertLocation
         },
         users::model::UserRole,
@@ -16,7 +16,7 @@ pub mod router {
 
     // - - - - - - - - - - - [ROUTES] - - - - - - - - - - -
 
-    pub fn locations_routes(shared_connection_pool: ConnectionPool) -> Router {
+    pub fn locations_route(shared_connection_pool: ConnectionPool) -> Router {
         Router::new()
             .route("/locations", axum::routing::post(create_location_handler))
             .route("/locations/:location_id", axum::routing::get(read_location_handler))
@@ -184,13 +184,13 @@ pub mod router {
             },
             locations::{
                 model::UpsertLocation,
-                service::service::LocationDatabase
+                service::service::LocationsTable
             },
             users::{
                 model::UpsertUser,
-                service::service::UserDatabase
+                service::service::UsersTable
             },
-            locations_routes
+            locations_route
         };
         use crate::common::db::ConnectionPool;
         use crate::common::security::generate_token;
@@ -213,7 +213,7 @@ pub mod router {
             // Perform the user creation
             let create_user_result = {
                 let connection = connection_pool.pool.get().expect("Failed to get connection");
-                UserDatabase::new(connection).create(new_user.clone())
+                UsersTable::new(connection).create(new_user.clone())
             };
 
             // Generate the bearer token
@@ -224,7 +224,7 @@ pub mod router {
         async fn post_locations_returns_201_for_authorized_user_with_write_access() {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
-            let service = locations_routes(connection_pool.clone());
+            let service = locations_route(connection_pool.clone());
 
             // Create user with role WRITER and generate associated bearer token
             let bearer_token = create_user_and_generate_token(connection_pool, "stål.hard.russer@ugreit.ru", UserRole::WRITER);
@@ -257,7 +257,7 @@ pub mod router {
         async fn post_locations_returns_401_for_unauthorized_user_without_write_access() {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
-            let service = locations_routes(connection_pool.clone());
+            let service = locations_route(connection_pool.clone());
 
             // Create user with role READER and generate associated bearer token
             let bearer_token = create_user_and_generate_token(connection_pool, "myk.og.ekkel.russer@put.in", UserRole::READER);
@@ -291,8 +291,8 @@ pub mod router {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 2);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
-            let service = locations_routes(connection_pool.clone());
+            let mut location_db = LocationsTable::new(connection);
+            let service = locations_route(connection_pool.clone());
 
             // Create user with role WRITER and generate associated bearer token
             let bearer_token = create_user_and_generate_token(connection_pool, "dagfinnkuk@blåfjelletsvenner.no", UserRole::EDITOR);
@@ -352,8 +352,8 @@ pub mod router {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 2);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
-            let service = locations_routes(connection_pool.clone());
+            let mut location_db = LocationsTable::new(connection);
+            let service = locations_route(connection_pool.clone());
 
             // Create user with role WRITER and generate associated bearer token
             let bearer_token = create_user_and_generate_token(connection_pool, "necromancer@gpf.no", UserRole::WRITER);
@@ -399,8 +399,8 @@ pub mod router {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 2);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
-            let service = locations_routes(connection_pool.clone());
+            let mut location_db = LocationsTable::new(connection);
+            let service = locations_route(connection_pool.clone());
 
             let bearer_token = create_user_and_generate_token(connection_pool, "duvetdet@gjerrigknark.no", UserRole::READER);
 
@@ -449,8 +449,8 @@ pub mod router {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 2);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
-            let service = locations_routes(connection_pool.clone());
+            let mut location_db = LocationsTable::new(connection);
+            let service = locations_route(connection_pool.clone());
 
             let bearer_token = create_user_and_generate_token(connection_pool, "kokefaktura@woodworm.org", UserRole::WRITER);
 
@@ -499,8 +499,8 @@ pub mod router {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 2);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
-            let service = locations_routes(connection_pool.clone());
+            let mut location_db = LocationsTable::new(connection);
+            let service = locations_route(connection_pool.clone());
 
             let bearer_token = create_user_and_generate_token(connection_pool, "igor.invalidus@bogdanov.fr", UserRole::INVALID);
 
@@ -534,7 +534,7 @@ pub mod router {
         async fn get_locations_returns_404_on_non_existing_id() {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 2);
-            let service = locations_routes(connection_pool.clone());
+            let service = locations_route(connection_pool.clone());
 
             let bearer_token = create_user_and_generate_token(connection_pool, "birdman@ifi.uio.no", UserRole::READER);
 
@@ -561,8 +561,8 @@ pub mod router {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 2);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
-            let service = locations_routes(connection_pool.clone());
+            let mut location_db = LocationsTable::new(connection);
+            let service = locations_route(connection_pool.clone());
 
             let bearer_token = create_user_and_generate_token(connection_pool,"you.know.your.judo.well@succulentmail.gb", UserRole::ADMIN);
 
@@ -609,8 +609,8 @@ pub mod router {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 2);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut location_db = LocationDatabase::new(connection);
-            let service = locations_routes(connection_pool.clone());
+            let mut location_db = LocationsTable::new(connection);
+            let service = locations_route(connection_pool.clone());
 
             let bearer_token = create_user_and_generate_token(connection_pool,"donttouchmys@p.succulentor.gb", UserRole::EDITOR);
 

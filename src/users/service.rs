@@ -15,13 +15,13 @@ pub mod service {
 
     type PooledPg = PooledConnection<ConnectionManager<PgConnection>>;
 
-    pub struct UserDatabase {
+    pub struct UsersTable {
         connection: PooledPg,
     }
 
-    impl UserDatabase {
-        pub fn new(connection: PooledPg) -> UserDatabase {
-            UserDatabase { connection }
+    impl UsersTable {
+        pub fn new(connection: PooledPg) -> UsersTable {
+            UsersTable { connection }
         }
 
         pub fn create(&mut self, create_user: UpsertUser) -> Result<User, CustomError> {
@@ -117,7 +117,7 @@ pub mod service {
             },
             users::{
                 model::UpsertUser,
-                service::service::UserDatabase
+                service::service::UsersTable
             }
         };
 
@@ -126,7 +126,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut user_db = UserDatabase::new(connection);
+            let mut user_db = UsersTable::new(connection);
 
             let new_user = UpsertUser {
                 email: "obelisksx@ifi.uio.no".to_string(),
@@ -148,7 +148,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut user_db = UserDatabase::new(connection);
+            let mut user_db = UsersTable::new(connection);
 
             let dupe_user = UpsertUser {
                 email: "duperdave@blizzard.com".to_string(),
@@ -192,7 +192,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut user_db = UserDatabase::new(connection);
+            let mut user_db = UsersTable::new(connection);
 
             let new_user = UpsertUser {
                 email: "kokemakken@tremakk.no".to_string(),
@@ -215,7 +215,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut user_db = UserDatabase::new(connection);
+            let mut user_db = UsersTable::new(connection);
 
             let retrieved_user = user_db.get(-666); // Use a non-existing ID
 
@@ -228,7 +228,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut user_db = UserDatabase::new(connection);
+            let mut user_db = UsersTable::new(connection);
 
             let original_request = UpsertUser {
                 email: "pondi@wwf.com".to_string(),
@@ -259,7 +259,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut user_db = UserDatabase::new(connection);
+            let mut user_db = UsersTable::new(connection);
 
             let request = UpsertUser {
                 email: "lukewarm@manlet.com".to_string(),
@@ -278,7 +278,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut user_db = UserDatabase::new(connection);
+            let mut user_db = UsersTable::new(connection);
 
             let request = UpsertUser {
                 email: "world.according.to.jesse@mongols.com".to_string(),
@@ -299,7 +299,7 @@ pub mod service {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut user_db = UserDatabase::new(connection);
+            let mut user_db = UsersTable::new(connection);
             let result = user_db.delete(-666);  // Use a non-existent ID
 
             assert!(result.is_err());  // Expecting an error as the ID is not present

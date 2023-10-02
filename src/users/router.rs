@@ -7,7 +7,7 @@ pub mod router {
             db::ConnectionPool,
             security::{hash_password, generate_token}},
         users::{
-            service::service::UserDatabase,
+            service::service::UsersTable,
             model::{
                 UpsertUser,
                 LoginUser,
@@ -17,7 +17,7 @@ pub mod router {
 
     // - - - - - - - - - - - [ROUTES] - - - - - - - - - - -
 
-    pub fn users_routes(shared_connection_pool: ConnectionPool) -> Router {
+    pub fn users_route(shared_connection_pool: ConnectionPool) -> Router {
         Router::new()
             .route("/users", axum::routing::post(create_user_handler))
             .route("/users/:user_id", axum::routing::get(get_user_handler))
@@ -43,7 +43,7 @@ pub mod router {
         let connection = shared_state.pool.get()
             .expect("Failed to acquire connection from pool");
 
-        match UserDatabase::new(connection).create(body) {
+        match UsersTable::new(connection).create(body) {
             Ok(created_user) => Ok((StatusCode::CREATED, Json(created_user))),
             Err(err) => {
                 eprintln!("Create user failed: {:?}", err);
@@ -65,7 +65,7 @@ pub mod router {
         let connection = shared_state.pool.get()
             .expect("Failed to acquire connection from pool");
 
-        let mut users = UserDatabase::new(connection);
+        let mut users = UsersTable::new(connection);
 
         match users.get(user_id) {
             Ok(user) => {
@@ -92,7 +92,7 @@ pub mod router {
         let connection = shared_state.pool.get()
             .expect("Failed to acquire connection from pool");
 
-        let mut users = UserDatabase::new(connection);
+        let mut users = UsersTable::new(connection);
 
         match users.update(user_id, update_user) {
             Ok(updated_user) => Ok((StatusCode::OK, Json(updated_user))),
@@ -115,7 +115,7 @@ pub mod router {
         let connection = shared_state.pool.get()
             .expect("Failed to acquire connection from pool");
 
-        let mut users = UserDatabase::new(connection);
+        let mut users = UsersTable::new(connection);
 
         match users.delete(user_id) {
             Ok(_) => Ok((StatusCode::NO_CONTENT, ())),
@@ -133,7 +133,7 @@ pub mod router {
         let connection = shared_state.pool.get()
             .expect("Failed to acquire connection from pool");
 
-        match UserDatabase::new(connection).get_by_email(body.email.clone()) {
+        match UsersTable::new(connection).get_by_email(body.email.clone()) {
             Ok(Some(user)) if body.email == user.email => {
                 return if verify(&body.password, &user.password).unwrap_or(false) {
                     if let Some(token) = generate_token(&user).ok() {
@@ -160,15 +160,15 @@ pub mod router {
         use axum::http::{Request, StatusCode};
         use serde_json::json;
         use tower::ServiceExt;
-        use crate::{create_shared_connection_pool, load_environment_variable, users_routes};
+        use crate::{create_shared_connection_pool, load_environment_variable, users_route};
         use crate::users::model::UpsertUser;
-        use crate::users::service::service::UserDatabase;
+        use crate::users::service::service::UsersTable;
 
         #[tokio::test]
         async fn post_users_returns_201_on_valid_data() {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
-            let service = users_routes(connection_pool);
+            let service = users_route(connection_pool);
 
             let request_body = UpsertUser {
                 email: "valid@email.com".to_string(),
@@ -199,7 +199,7 @@ pub mod router {
         async fn post_users_returns_422_on_invalid_email() {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 1);
-            let service = users_routes(connection_pool);
+            let service = users_route(connection_pool);
 
             let request_body = UpsertUser {
                 email: "eg-klare-meg".to_string(),
@@ -231,8 +231,8 @@ pub mod router {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 2);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut user_db = UserDatabase::new(connection);
-            let service = users_routes(connection_pool);
+            let mut user_db = UsersTable::new(connection);
+            let service = users_route(connection_pool);
 
             // Data
             let request_body = UpsertUser {
@@ -298,8 +298,8 @@ pub mod router {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 2);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut user_db = UserDatabase::new(connection);
-            let service = users_routes(connection_pool);
+            let mut user_db = UsersTable::new(connection);
+            let service = users_route(connection_pool);
 
             let request_body = UpsertUser {
                 email: "glossy@ringdue.no".to_string(),
@@ -348,7 +348,7 @@ pub mod router {
         async fn get_users_returns_404_on_non_existing_id() {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 2);
-            let service = users_routes(connection_pool);
+            let service = users_route(connection_pool);
 
             // Create a request with the aforementioned id
             let request = Request::builder()
@@ -372,8 +372,8 @@ pub mod router {
             let database_url = load_environment_variable("TEST_DB");
             let connection_pool = create_shared_connection_pool(database_url, 2);
             let connection = connection_pool.pool.get().expect("Failed to get connection");
-            let mut user_db = UserDatabase::new(connection);
-            let service = users_routes(connection_pool);
+            let mut user_db = UsersTable::new(connection);
+            let service = users_route(connection_pool);
 
             let request_body = UpsertUser {
                 email: "josek@ifi.uio.no".to_string(),
